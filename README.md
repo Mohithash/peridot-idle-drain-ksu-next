@@ -432,6 +432,10 @@ Changes are stored in:
 /data/adb/modules/peridot_idle_drain/config.conf
 ```
 
+Open the WebUI from KernelSU Next / KernelSU Manager's module screen. It will not work if `webroot/index.html` is opened from a browser or file manager because the `kernelsu` WebUI API is only injected by the manager.
+
+For ADB command testing, grant root to shell in your root manager first. Otherwise `adb shell su -c ...` may fail even though the module itself is installed.
+
 ## Manual Commands
 
 Check status:

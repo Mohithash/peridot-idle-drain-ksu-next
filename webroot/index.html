@@ -423,6 +423,8 @@
   </main>
 
   <script type="module">
+    import { exec } from 'kernelsu';
+
     const output = document.getElementById('output');
     const apiError = document.getElementById('apiError');
     const enabled = document.getElementById('enabled');
@@ -442,20 +444,10 @@
     const refreshRate = document.getElementById('refreshRate');
     const packageName = document.getElementById('packageName');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
-    let execFn = null;
+    let execFn = exec;
 
     function show(text) {
       output.textContent = text || '';
-    }
-
-    async function loadApi() {
-      try {
-        const api = await import('kernelsu');
-        execFn = api.exec;
-      } catch (error) {
-        apiError.style.display = 'block';
-        show('KernelSU WebUI API unavailable. Open this module from KernelSU Next WebUI.');
-      }
     }
 
     async function run(args) {
@@ -762,10 +754,11 @@
         show(await run(`restore-category ${button.dataset.restoreCategory}`));
       });
     });
-
-    await loadApi();
-    if (execFn) {
+    try {
       await refresh();
+    } catch (error) {
+      apiError.style.display = 'block';
+      show('KernelSU WebUI API unavailable. Open this module from KernelSU Next / KernelSU Manager module WebUI, not from a browser or file manager.');
     }
   </script>
 </body>
