@@ -12,7 +12,7 @@ sp(){ settings put "$1" "$2" "$3" 2>/dev/null; }
 dc(){ device_config put "$1" "$2" "$3" 2>/dev/null; }
 safe(){ sp global wifi_scan_always_enabled 0;sp global ble_scan_always_enabled 0;sp global adaptive_connectivity_enabled 0;sp secure nearby_scanning_enabled 0;sp secure doze_enabled 0;sp secure doze_always_on 0;sp secure wake_gesture_enabled 0;sp secure double_tap_to_wake 0;sp system haptic_feedback_enabled 0;sp system vibrate_when_ringing 0;sp secure ui_night_mode 2;sp system peak_refresh_rate "${1:-60}";sp system min_refresh_rate 60;dc device_idle inactive_to 60000;dc device_idle sensing_to 0;dc device_idle locating_to 0;dc device_idle motion_inactive_to 60000;dc device_idle idle_after_inactive_to 120000; }
 apply(){ [ "$(get ENABLED)" = 0 ]&&{ log disabled;return; }; prof=$(get PROFILE);[ -z "$prof" ]&&prof=idle;case "$prof" in balanced)safe 90;;screen)safe 60;;*)safe 60;;esac;log "applied $prof"; }
-status(){ echo "Peridot Idle Drain v1.7.5";echo "author: Mohithash";echo "profile: $(get PROFILE)";echo "enabled: $(get ENABLED)";echo "repo: https://github.com/Mohithash/peridot-idle-drain-ksu-next"; }
+status(){ echo "Peridot Idle Drain v1.7.6";echo "author: Mohithash";echo "profile: $(get PROFILE)";echo "enabled: $(get ENABLED)";echo "repo: https://github.com/Mohithash/peridot-idle-drain-ksu-next"; }
 plist(){ v=$(get PROTECTED_PACKAGES);[ -z "$v" ]&&v=$P;echo "$v"|tr ',' '\n'; }
 padd(){ v=$(get PROTECTED_PACKAGES);[ -z "$v" ]&&v=$P;echo "$v"|tr ',' '\n'|grep -qx "$1"||setv PROTECTED_PACKAGES "$v,$1";plist; }
 prem(){ v=$(plist|grep -vx "$1"|paste -sd, -);setv PROTECTED_PACKAGES "$v";plist; }

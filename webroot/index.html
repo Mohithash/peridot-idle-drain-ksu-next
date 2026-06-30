@@ -8,16 +8,20 @@ button,select{border:0;border-radius:999px;padding:11px 14px;margin:5px;backgrou
 </style></head><body><main>
 <h1>Peridot Idle Drain</h1><div class="sub">VoltageOS/peridot battery helper by Mohithash</div>
 <section class="card"><b>Quick setup</b><p class="note">Keeps calls, SMS, Clock, IMS, GMS, SystemUI and root untouched. Use Thanox/Hail for app freezing.</p>
-<div class="grid"><button class="primary" onclick="run('my-setup')">My setup</button><button onclick="run('apply')">Apply</button><button onclick="run('safety-check')">Safety check</button><button onclick="run('analyze-all')">Analyze</button></div></section>
+<div class="grid"><button class="primary" data-cmd="my-setup">My setup</button><button data-cmd="apply">Apply</button><button data-cmd="safety-check">Safety check</button><button data-cmd="analyze-all">Analyze</button></div></section>
 <section class="card"><b>Profile</b><p class="note" id="info">Ultra is best for your use: 60Hz, dark mode, haptics off, no idle scans. Calls and Clock stay safe.</p>
-<select id="p" onchange="profileInfo()"><option>balanced</option><option>idle</option><option selected>ultra</option><option>night</option><option>screen</option></select>
-<button onclick="run('set-profile '+document.getElementById('p').value)">Set profile</button></section>
-<section class="card"><b>Exports and cleanup</b><div class="grid"><button onclick="run('export-my-template')">My template</button><button onclick="run('export-thanox-templates')">Thanox</button><button onclick="run('export-hail-lists')">Hail</button><button onclick="run('notification-report')">Notifications</button><button onclick="run('overnight-start')">Overnight start</button><button onclick="run('overnight-report')">Overnight report</button><button onclick="run('reset-all')">Reset all</button></div></section>
+<select id="p"><option>balanced</option><option>idle</option><option selected>ultra</option><option>night</option><option>screen</option></select>
+<button id="setProfile">Set profile</button></section>
+<section class="card"><b>Exports and cleanup</b><div class="grid"><button data-cmd="export-my-template">My template</button><button data-cmd="export-thanox-templates">Thanox</button><button data-cmd="export-hail-lists">Hail</button><button data-cmd="notification-report">Notifications</button><button data-cmd="overnight-start">Overnight start</button><button data-cmd="overnight-report">Overnight report</button><button data-cmd="reset-all">Reset all</button></div></section>
 <section class="card"><b>Output</b><pre id="out">If buttons do nothing, run commands manually:
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'</pre></section>
 </main><script>
-const path="/data/adb/modules/peridot_idle_drain/scripts/tune.sh",out=document.getElementById("out");
+const path="/data/adb/modules/peridot_idle_drain/scripts/tune.sh",out=document.getElementById("out"),sel=document.getElementById("p"),inf=document.getElementById("info");
 function api(){return window.ksu||window.KernelSU}
-async function run(c){out.textContent="$ "+c+"\n";try{let k=api();if(!k||!k.exec){out.textContent+="KernelSU WebUI API unavailable. Open from KernelSU Next module WebUI or run:\nsu -c 'sh "+path+" "+c+"'";return}let r=await k.exec("sh "+path+" "+c);out.textContent+=(r.stdout||"")+(r.stderr?("\n"+r.stderr):"")}catch(e){out.textContent+="WebUI error: "+e+"\nManual:\nsu -c 'sh "+path+" "+c+"'"}}
-function profileInfo(){let p=document.getElementById("p").value,txt={balanced:"Light changes. Good daily use. Calls/SMS/Clock untouched.",idle:"Idle saver. Disables scans/AOD style features. Calls/SMS/Clock untouched.",ultra:"Most aggressive safe profile. 60Hz, dark, no haptics/scans. Calls/SMS/Clock/IMS/GMS untouched.",night:"Night mode for sleep. Use overnight report in morning. Alarm and calls untouched.",screen:"Screen-on saver: refresh/haptics/dark mode. Apps handled by Thanox/Hail."};info.textContent=txt[p]}
+function kexec(cmd){return new Promise((ok,fail)=>{let k=api(),cb="cb"+Date.now()+Math.floor(Math.random()*9999);if(!k||!k.exec)return fail("KernelSU WebUI API unavailable");window[cb]=(errno,stdout,stderr)=>{delete window[cb];ok({errno,stdout,stderr})};try{k.exec(cmd,"{}",cb)}catch(e){delete window[cb];fail(e)}})}
+async function run(c){out.textContent="$ "+c+"\n";try{let r=await kexec("sh "+path+" "+c);out.textContent+=(r.stdout||"")+(r.stderr?("\n"+r.stderr):"")+(r.errno?("\nexit: "+r.errno):"")}catch(e){out.textContent+="WebUI API error: "+e+"\nManual:\nsu -c 'sh "+path+" "+c+"'"}}
+function profileInfo(){let p=sel.value,txt={balanced:"Light changes. Good daily use. Calls/SMS/Clock untouched.",idle:"Idle saver. Disables scans/AOD style features. Calls/SMS/Clock untouched.",ultra:"Most aggressive safe profile. 60Hz, dark, no haptics/scans. Calls/SMS/Clock/IMS/GMS untouched.",night:"Night mode for sleep. Use overnight report in morning. Alarm and calls untouched.",screen:"Screen-on saver: refresh/haptics/dark mode. Apps handled by Thanox/Hail."};inf.textContent=txt[p]}
+document.querySelectorAll("[data-cmd]").forEach(b=>b.addEventListener("click",()=>run(b.dataset.cmd)));
+document.getElementById("setProfile").addEventListener("click",()=>run("set-profile "+sel.value));
+sel.addEventListener("change",profileInfo);profileInfo();
 </script></body></html>
