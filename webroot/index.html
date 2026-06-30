@@ -72,7 +72,7 @@
       gap: 14px;
       min-height: 58px;
       padding: 9px 0;
-      border-bottom: 1px solid color-mix(in srgb, var(--outline), transparent 35%);
+      border-bottom: 1px solid var(--outline);
     }
     .row:last-child { border-bottom: 0; }
     .label {
@@ -103,9 +103,9 @@
       gap: 8px;
       margin-top: 12px;
       padding: 12px;
-      border: 1px solid color-mix(in srgb, var(--primary), transparent 45%);
+      border: 1px solid var(--primary);
       border-radius: 16px;
-      background: color-mix(in srgb, var(--primary-container), transparent 40%);
+      background: var(--primary-container);
     }
     .explain strong { color: var(--ok); }
     .switch {
@@ -157,7 +157,7 @@
     }
     input:focus, select:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary), transparent 76%);
+      box-shadow: 0 0 0 3px rgba(143, 216, 201, .24);
     }
     button {
       min-height: 46px;
@@ -173,7 +173,7 @@
     button:active { transform: translateY(1px); }
     button.primary { background: var(--primary); color: var(--on-primary); }
     button.danger {
-      border-color: color-mix(in srgb, var(--danger), transparent 50%);
+      border-color: var(--danger);
       background: var(--danger-container);
       color: var(--danger);
     }
@@ -195,14 +195,14 @@
       display: none;
       margin-top: 12px;
       padding: 12px;
-      border: 1px solid color-mix(in srgb, var(--danger), transparent 45%);
+      border: 1px solid var(--danger);
       border-radius: 16px;
       background: var(--danger-container);
       color: var(--danger);
     }
     details {
       margin-top: 12px;
-      border-top: 1px solid color-mix(in srgb, var(--outline), transparent 35%);
+      border-top: 1px solid var(--outline);
       padding-top: 12px;
     }
     summary {
@@ -386,7 +386,7 @@
     </section>
   </main>
 
-  <script type="module">
+  <script>
     const output = document.getElementById('output');
     const apiError = document.getElementById('apiError');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
@@ -482,16 +482,31 @@
       });
     }
 
-    async function main() {
+    async function loadKernelSuApi() {
       try {
         const api = await import('kernelsu');
         execFn = api.exec;
       } catch (error) {
         apiError.style.display = 'block';
         explainProfile('idle');
-        show('KernelSU WebUI API unavailable. Open this module from KernelSU Next / KernelSU Manager module WebUI, not from a browser or file manager.');
-        return;
+        show([
+          'KernelSU WebUI API unavailable.',
+          '',
+          'Open this module from KernelSU Next / KernelSU Manager module WebUI.',
+          'If you are already there, your manager build may not support the virtual kernelsu JavaScript API.',
+          '',
+          'Manual command examples:',
+          \"su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh status'\",
+          \"su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'\",
+          \"su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh reset-all'\"
+        ].join('\\n'));
+        return false;
       }
+      return true;
+    }
+
+    async function main() {
+      explainProfile('idle');
 
       el.profile.addEventListener('change', async () => {
         explainProfile(el.profile.value);
@@ -586,10 +601,16 @@
         await refresh();
       });
 
-      await refresh();
+      if (await loadKernelSuApi()) {
+        await refresh();
+      }
     }
 
-    main();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', main);
+    } else {
+      main();
+    }
   </script>
 </body>
 </html>

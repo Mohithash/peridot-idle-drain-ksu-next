@@ -276,7 +276,7 @@ For ongoing app control, use Thanox/Hail rules manually. The module only exports
 
 ## v1.7.2 Polish Release
 
-Version 1.7.2 improves the WebUI wording and layout, fixes module metadata, adds the GitHub repo link, adds profile explanations, and adds `reset-all` for clean uninstall preparation.
+Version 1.7.3 improves WebUI compatibility for KernelSU Next / KernelSU Manager WebViews. The page renders first, then loads the KernelSU API, so unsupported manager builds should show a clear message instead of a blank page.
 
 The WebUI is split into beginner-friendly sections:
 
