@@ -14,7 +14,7 @@ The module includes:
 
 - KernelSU Next module metadata
 - boot-time `service.sh`
-- WebUI in `webroot/index.html`
+- WebUI in `webroot/index.html` with bundled local script `webroot/app.js`
 - command-line control script at `scripts/tune.sh`
 - backup and restore support
 - log output for troubleshooting
@@ -274,9 +274,18 @@ The module itself is designed to avoid becoming a battery drain source:
 
 For ongoing app control, use Thanox/Hail rules manually. The module only exports templates and package lists.
 
-## v1.7.2 Polish Release
+## v1.7.4 WebUI Compatibility Release
 
-Version 1.7.3 improves WebUI compatibility for KernelSU Next / KernelSU Manager WebViews. The page renders first, then loads the KernelSU API, so unsupported manager builds should show a clear message instead of a blank page.
+Version 1.7.4 improves WebUI compatibility for KernelSU Next / KernelSU Manager WebViews by bundling the official `kernelsu` npm package into a local static script.
+
+Build details:
+
+- WebUI API package: `kernelsu@3.0.2`
+- Bundler: `esbuild`
+- Shipped files: `webroot/index.html` and local `webroot/app.js`
+- No CDN, no external assets, no WebUI polling timers
+
+The shipped HTML no longer relies on Android WebView resolving a bare `import('kernelsu')`. If the KernelSU WebUI API bridge is still unavailable, the page should render static UI and show manual command fallbacks instead of going blank. Open the page from KernelSU Next / KernelSU Manager's module WebUI. If a blank page still persists after v1.7.4, the manager WebView/API bridge is likely incompatible; shell commands should still work.
 
 The WebUI is split into beginner-friendly sections:
 
@@ -391,7 +400,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.7.2.zip
+dist/peridot-idle-drain-ksu-next-v1.7.4.zip
 ```
 
 Steps:

@@ -8,6 +8,7 @@ Thumbs.db
 *.log
 tmp/
 build/
+node_modules/
 
 # Keep release ZIPs tracked intentionally.
 # The dist ZIP is the installable KernelSU Next artifact for GitHub releases.
