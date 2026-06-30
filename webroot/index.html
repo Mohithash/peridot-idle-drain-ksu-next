@@ -174,11 +174,42 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="row">
+        <div class="label">
+          <strong>Scanning tweaks</strong>
+          <span>Wi-Fi/Bluetooth/Nearby background scan reductions.</span>
+        </div>
+        <label class="switch">
+          <input id="scanning" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Display idle tweaks</strong>
+          <span>AOD, ambient, tap, pickup and screen-off UDFPS reductions.</span>
+        </div>
+        <label class="switch">
+          <input id="display" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Doze tuning</strong>
+          <span>Moderate device-idle constants for deeper idle.</span>
+        </div>
+        <label class="switch">
+          <input id="doze" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
     </section>
 
     <section>
       <div class="actions">
         <button class="primary" id="apply">Apply now</button>
+        <button id="diagnose">Diagnose</button>
         <button id="restore">Restore</button>
         <button id="viewLogs">View logs</button>
         <button class="danger" id="clearLogs">Clear logs</button>
@@ -192,6 +223,9 @@
     const apiError = document.getElementById('apiError');
     const enabled = document.getElementById('enabled');
     const aggressive = document.getElementById('aggressive');
+    const scanning = document.getElementById('scanning');
+    const display = document.getElementById('display');
+    const doze = document.getElementById('doze');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
     let execFn = null;
 
@@ -224,6 +258,9 @@
         show(text);
         enabled.checked = /Enabled:\s*1/.test(text);
         aggressive.checked = /Aggressive:\s*1/.test(text);
+        scanning.checked = /Scanning tweaks:\s*1/.test(text);
+        display.checked = /Display idle tweaks:\s*1/.test(text);
+        doze.checked = /Doze tuning:\s*1/.test(text);
       } catch (error) {
         show(String(error.message || error));
       }
@@ -239,9 +276,28 @@
       await refresh();
     });
 
+    scanning.addEventListener('change', async () => {
+      show(await run(`set-scanning ${scanning.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    display.addEventListener('change', async () => {
+      show(await run(`set-display ${display.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    doze.addEventListener('change', async () => {
+      show(await run(`set-doze ${doze.checked ? 1 : 0}`));
+      await refresh();
+    });
+
     document.getElementById('apply').addEventListener('click', async () => {
       show(await run('apply'));
       await refresh();
+    });
+
+    document.getElementById('diagnose').addEventListener('click', async () => {
+      show(await run('diagnose'));
     });
 
     document.getElementById('restore').addEventListener('click', async () => {

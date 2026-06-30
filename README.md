@@ -22,6 +22,9 @@ Default configuration:
 ```txt
 ENABLED=1
 AGGRESSIVE=0
+SCANNING_TWEAKS=1
+DISPLAY_IDLE_TWEAKS=1
+DOZE_TUNING=1
 ```
 
 ## Compatibility
@@ -63,6 +66,13 @@ Normal mode disables or reduces common idle wake sources:
 
 It also applies moderate `device_idle` constants through `device_config` to encourage deeper idle without using extreme values.
 
+The 1.1.0 tuning pass was informed by the available VoltageOS peridot device tree:
+
+- peridot exposes AOD/doze, pickup pulse, single-tap/double-tap, and screen-off UDFPS support
+- peridot enables Wi-Fi background scanning support
+- peridot exposes SurfaceFlinger/kernel idle timer related properties
+- peridot carries radio advanced-scan defaults and Qualcomm diagnostic/debug components that should be observed, not forcibly disabled by a user module
+
 Aggressive mode additionally changes discovery/assistant/voice-interaction style settings:
 
 - Wi-Fi poor connection warning
@@ -96,7 +106,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.0.0.zip
+dist/peridot-idle-drain-ksu-next-v1.1.0.zip
 ```
 
 Steps:
@@ -113,7 +123,11 @@ The WebUI provides:
 
 - Enable / disable module
 - Enable / disable aggressive mode
+- Enable / disable scanning tweaks
+- Enable / disable display idle tweaks
+- Enable / disable Doze tuning
 - Apply now
+- Diagnose
 - Restore backed-up settings
 - View logs
 - Clear logs
@@ -158,6 +172,20 @@ su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-aggressive 1'
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-aggressive 0'
 ```
 
+Enable or disable tweak categories:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-scanning 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-display 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-doze 1'
+```
+
+Collect a read-only diagnosis report:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh diagnose'
+```
+
 View or clear logs:
 
 ```sh
@@ -177,6 +205,12 @@ Logs are written to:
 
 ```txt
 /data/local/tmp/peridot_idle_drain.log
+```
+
+Diagnosis reports are written to:
+
+```txt
+/data/local/tmp/peridot_idle_drain_diagnose.txt
 ```
 
 To restore original settings:
