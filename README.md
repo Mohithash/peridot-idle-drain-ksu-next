@@ -26,6 +26,12 @@ SCANNING_TWEAKS=1
 DISPLAY_IDLE_TWEAKS=1
 DOZE_TUNING=1
 ULTRA_IDLE=0
+SCREEN_ON_SAVER=0
+HAPTICS_OFF=0
+DARK_MODE=0
+DARK_WALLPAPER=0
+EXPORT_APP_POLICY=1
+SCREEN_ON_REFRESH_RATE=60
 PROTECTED_PACKAGES=com.android.dialer,com.android.phone,com.android.server.telecom,...
 ```
 
@@ -101,6 +107,20 @@ Ultra mode may reduce convenience features such as location background behavior,
 
 Calls and Clock should remain safe because the default protected list includes common telephony, Telecom, Dialer, telephony provider, Clock, GMS/GSF/IMS, SystemUI, KernelSU/Magisk, and LSPosed packages. Still, package names vary by ROM, so verify your installed Clock, SMS, and dialer package names.
 
+## Screen-On Saver and UI Reductions
+
+Version 1.3.0 adds optional screen-on battery helpers:
+
+- refresh-rate cap: `60`, `90`, or `120`
+- haptics/vibration off where Android exposes settings keys
+- Android dark mode request
+- best-effort black wallpaper command
+- app policy export for Thanox and Hail
+
+The screen-on saver is intentionally simple. Display brightness, gaming, camera, 5G in weak signal, and heavy apps dominate screen-on drain, so the module caps refresh rate and reduces extra discovery behavior without forcing brightness or breaking calls.
+
+Dark wallpaper uses Android's `cmd wallpaper` when available. Android does not expose a reliable universal wallpaper backup/restore command, so restore your previous wallpaper manually if you use this option.
+
 ## Protected Packages and Thanox
 
 The module keeps a protected package list for Thanox guidance. It does not edit Thanox databases because that would be fragile across Thanox versions.
@@ -126,6 +146,15 @@ Default protected packages include:
 
 Add your own must-stay-awake apps, for example WhatsApp or Telegram, before making Thanox aggressively freeze apps after screen off.
 
+Recommended optional whitelist apps:
+
+- `com.whatsapp` if you need instant WhatsApp messages
+- `org.telegram.messenger` for Telegram stable
+- `org.thunderdog.challegram` for Telegram X
+- your authenticator app
+- your calendar/reminder app if separate from Clock
+- banking or payment apps only if you truly need alerts
+
 Suggested Thanox concept:
 
 - whitelist the protected packages
@@ -133,6 +162,34 @@ Suggested Thanox concept:
 - restrict background start/wakeup for all other user apps after screen off
 - freeze or hibernate noisy apps such as shopping, payment, social, video, or food apps after screen off/exit
 - do not freeze Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, KernelSU, Magisk, or LSPosed
+
+## Hail, Notifications, and Telegram
+
+The module exports an app policy helper instead of editing Hail/Thanox private data or blindly changing appops for every package.
+
+Suggested Hail concept:
+
+- select all non-whitelist user apps for freeze
+- do not freeze protected packages
+- use manual launch/unfreeze for apps you only need while using the phone
+- test banking/payment apps before relying on them, because freezing can delay security prompts or transaction alerts
+
+Suggested notification concept:
+
+- disable notifications for non-whitelist apps from Android Settings, App Manager, Thanox, or each app's settings
+- keep notifications only for calls, Clock/alarm, SMS, and your chosen personal messenger
+- avoid global notification appops scripts unless you are ready to recover manually
+
+Telegram limitation:
+
+Android/KernelSU cannot reliably allow only personal messages while globally muting groups, channels, and bots. Configure Telegram itself:
+
+- Telegram > Settings > Notifications and Sounds
+- Private Chats: on
+- Groups: off
+- Channels: off
+- mute bots/other chats manually or through Telegram folders/notification exceptions
+- keep Telegram whitelisted only if instant personal messages matter
 
 ## What It Does Not Touch
 
@@ -157,7 +214,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.2.0.zip
+dist/peridot-idle-drain-ksu-next-v1.3.0.zip
 ```
 
 Steps:
@@ -177,6 +234,11 @@ The WebUI provides:
 - Enable / disable scanning tweaks
 - Enable / disable display idle tweaks
 - Enable / disable Doze tuning
+- Enable / disable screen-on saver
+- Select refresh cap
+- Enable / disable haptics off
+- Enable / disable dark mode
+- Enable / disable dark wallpaper
 - Apply now
 - Diagnose
 - Restore backed-up settings
@@ -230,6 +292,16 @@ su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-ultra 1'
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-ultra 0'
 ```
 
+Screen-on saver and UI reductions:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-screen-saver 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-refresh-rate 60'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-haptics 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-dark-mode 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-dark-wallpaper 1'
+```
+
 Show or edit protected packages:
 
 ```sh
@@ -250,6 +322,19 @@ The helper is written to:
 ```txt
 /data/local/tmp/peridot_thanox_whitelist.txt
 /sdcard/Download/peridot_thanox_whitelist.txt
+```
+
+Export the full Thanox/Hail/app policy helper:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-app-policy'
+```
+
+The helper is written to:
+
+```txt
+/data/local/tmp/peridot_app_policy.txt
+/sdcard/Download/peridot_app_policy.txt
 ```
 
 Enable or disable tweak categories:
@@ -337,6 +422,7 @@ adb logcat -d > logcat.txt
 - Some features may feel less automatic after applying the module, especially nearby discovery, Wi-Fi suggestions, ambient display, pickup wake, or assistant behavior in aggressive mode.
 - If you rely on AOD, pickup wake, tap-to-wake, or smart connectivity features, keep aggressive mode off and restore if needed.
 - This module does not guarantee low drain if the real cause is modem, IMS, poor signal, a third-party app, kernel wakelock, broken suspend, or vendor firmware behavior.
+- Hail/Thanox freezing can delay or block notifications for frozen apps. Keep only the apps you truly need whitelisted.
 - VoltageOS, Android, and device trees can change. Re-test after ROM updates.
 - This module is not an official VoltageOS project.
 

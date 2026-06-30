@@ -113,6 +113,15 @@
       color: var(--text);
       font: inherit;
     }
+    select {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #0b0d0f;
+      color: var(--text);
+      font: inherit;
+    }
     button {
       min-height: 44px;
       border: 1px solid var(--line);
@@ -230,6 +239,57 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="row">
+        <div class="label">
+          <strong>Screen-on saver</strong>
+          <span>Caps refresh rate and disables extra discovery while the screen is on.</span>
+        </div>
+        <label class="switch">
+          <input id="screenSaver" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Refresh cap</strong>
+          <span>Lower values save more battery during use.</span>
+        </div>
+        <select id="refreshRate">
+          <option value="60">60 Hz</option>
+          <option value="90">90 Hz</option>
+          <option value="120">120 Hz</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Haptics off</strong>
+          <span>Disables touch/ring/notification vibration where supported.</span>
+        </div>
+        <label class="switch">
+          <input id="haptics" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Dark mode</strong>
+          <span>Requests Android dark theme.</span>
+        </div>
+        <label class="switch">
+          <input id="darkMode" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Dark wallpaper</strong>
+          <span>Best-effort black wallpaper using Android wallpaper command.</span>
+        </div>
+        <label class="switch">
+          <input id="darkWallpaper" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
     </section>
 
     <section>
@@ -257,6 +317,7 @@
         <button id="listPackages">Show protected</button>
         <button id="resetPackages">Reset defaults</button>
         <button id="exportThanox">Export Thanox helper</button>
+        <button id="exportPolicy">Export app policy</button>
       </div>
     </section>
   </main>
@@ -270,6 +331,11 @@
     const display = document.getElementById('display');
     const doze = document.getElementById('doze');
     const ultra = document.getElementById('ultra');
+    const screenSaver = document.getElementById('screenSaver');
+    const haptics = document.getElementById('haptics');
+    const darkMode = document.getElementById('darkMode');
+    const darkWallpaper = document.getElementById('darkWallpaper');
+    const refreshRate = document.getElementById('refreshRate');
     const packageName = document.getElementById('packageName');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
     let execFn = null;
@@ -307,6 +373,12 @@
         display.checked = /Display idle tweaks:\s*1/.test(text);
         doze.checked = /Doze tuning:\s*1/.test(text);
         ultra.checked = /Ultra idle:\s*1/.test(text);
+        screenSaver.checked = /Screen-on saver:\s*1/.test(text);
+        haptics.checked = /Haptics off:\s*1/.test(text);
+        darkMode.checked = /Dark mode:\s*1/.test(text);
+        darkWallpaper.checked = /Dark wallpaper:\s*1/.test(text);
+        const rate = text.match(/Screen-on refresh rate:\s*(60|90|120)/);
+        if (rate) refreshRate.value = rate[1];
       } catch (error) {
         show(String(error.message || error));
       }
@@ -345,6 +417,31 @@
 
     ultra.addEventListener('change', async () => {
       show(await run(`set-ultra ${ultra.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    screenSaver.addEventListener('change', async () => {
+      show(await run(`set-screen-saver ${screenSaver.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    haptics.addEventListener('change', async () => {
+      show(await run(`set-haptics ${haptics.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    darkMode.addEventListener('change', async () => {
+      show(await run(`set-dark-mode ${darkMode.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    darkWallpaper.addEventListener('change', async () => {
+      show(await run(`set-dark-wallpaper ${darkWallpaper.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    refreshRate.addEventListener('change', async () => {
+      show(await run(`set-refresh-rate ${refreshRate.value}`));
       await refresh();
     });
 
@@ -410,6 +507,10 @@
 
     document.getElementById('exportThanox').addEventListener('click', async () => {
       show(await run('export-thanox'));
+    });
+
+    document.getElementById('exportPolicy').addEventListener('click', async () => {
+      show(await run('export-app-policy'));
     });
 
     await loadApi();

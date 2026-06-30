@@ -7,6 +7,9 @@ BACKUP_FILE="/data/local/tmp/peridot_idle_drain_backup.txt"
 DIAG_FILE="/data/local/tmp/peridot_idle_drain_diagnose.txt"
 THANOX_FILE_TMP="/data/local/tmp/peridot_thanox_whitelist.txt"
 THANOX_FILE_DOWNLOAD="/sdcard/Download/peridot_thanox_whitelist.txt"
+APP_POLICY_FILE_TMP="/data/local/tmp/peridot_app_policy.txt"
+APP_POLICY_FILE_DOWNLOAD="/sdcard/Download/peridot_app_policy.txt"
+BLACK_WALLPAPER="/data/local/tmp/peridot_black_wallpaper.png"
 DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.android.systemui,me.weishu.kernelsu,com.topjohnwu.magisk,org.lsposed.manager"
 
 ensure_files() {
@@ -22,6 +25,12 @@ ensure_files() {
             echo "DISPLAY_IDLE_TWEAKS=1"
             echo "DOZE_TUNING=1"
             echo "ULTRA_IDLE=0"
+            echo "SCREEN_ON_SAVER=0"
+            echo "HAPTICS_OFF=0"
+            echo "DARK_MODE=0"
+            echo "DARK_WALLPAPER=0"
+            echo "EXPORT_APP_POLICY=1"
+            echo "SCREEN_ON_REFRESH_RATE=60"
             echo "PROTECTED_PACKAGES=$DEFAULT_PROTECTED_PACKAGES"
         } > "$CONFIG_FILE"
         chmod 0644 "$CONFIG_FILE" 2>/dev/null
@@ -40,6 +49,12 @@ load_config() {
     DISPLAY_IDLE_TWEAKS=1
     DOZE_TUNING=1
     ULTRA_IDLE=0
+    SCREEN_ON_SAVER=0
+    HAPTICS_OFF=0
+    DARK_MODE=0
+    DARK_WALLPAPER=0
+    EXPORT_APP_POLICY=1
+    SCREEN_ON_REFRESH_RATE=60
     PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
     # shellcheck disable=SC1090
     . "$CONFIG_FILE" 2>/dev/null
@@ -49,6 +64,15 @@ load_config() {
     DISPLAY_IDLE_TWEAKS="$(bool_or_zero "$DISPLAY_IDLE_TWEAKS")"
     DOZE_TUNING="$(bool_or_zero "$DOZE_TUNING")"
     ULTRA_IDLE="$(bool_or_zero "$ULTRA_IDLE")"
+    SCREEN_ON_SAVER="$(bool_or_zero "$SCREEN_ON_SAVER")"
+    HAPTICS_OFF="$(bool_or_zero "$HAPTICS_OFF")"
+    DARK_MODE="$(bool_or_zero "$DARK_MODE")"
+    DARK_WALLPAPER="$(bool_or_zero "$DARK_WALLPAPER")"
+    EXPORT_APP_POLICY="$(bool_or_zero "$EXPORT_APP_POLICY")"
+    case "$SCREEN_ON_REFRESH_RATE" in
+        60|90|120) ;;
+        *) SCREEN_ON_REFRESH_RATE=60 ;;
+    esac
     [ -n "$PROTECTED_PACKAGES" ] || PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
 }
 
@@ -60,6 +84,12 @@ save_config() {
         echo "DISPLAY_IDLE_TWEAKS=$DISPLAY_IDLE_TWEAKS"
         echo "DOZE_TUNING=$DOZE_TUNING"
         echo "ULTRA_IDLE=$ULTRA_IDLE"
+        echo "SCREEN_ON_SAVER=$SCREEN_ON_SAVER"
+        echo "HAPTICS_OFF=$HAPTICS_OFF"
+        echo "DARK_MODE=$DARK_MODE"
+        echo "DARK_WALLPAPER=$DARK_WALLPAPER"
+        echo "EXPORT_APP_POLICY=$EXPORT_APP_POLICY"
+        echo "SCREEN_ON_REFRESH_RATE=$SCREEN_ON_REFRESH_RATE"
         echo "PROTECTED_PACKAGES=$PROTECTED_PACKAGES"
     } > "$CONFIG_FILE"
     chmod 0644 "$CONFIG_FILE" 2>/dev/null
@@ -239,6 +269,64 @@ apply_ultra_idle_settings() {
     settings_put system haptic_feedback_enabled 0 existing
 }
 
+apply_screen_on_saver_settings() {
+    [ "$SCREEN_ON_SAVER" = "1" ] || return
+    log "screen-on saver enabled refresh=$SCREEN_ON_REFRESH_RATE"
+    settings_put system peak_refresh_rate "$SCREEN_ON_REFRESH_RATE" common
+    settings_put system min_refresh_rate 60 common
+    settings_put system user_refresh_rate "$SCREEN_ON_REFRESH_RATE" existing
+    settings_put secure user_refresh_rate "$SCREEN_ON_REFRESH_RATE" existing
+    settings_put global wifi_verbose_logging_enabled 0 common
+    settings_put global adaptive_connectivity_enabled 0 common
+    settings_put global network_recommendations_enabled 0 common
+}
+
+apply_haptics_settings() {
+    [ "$HAPTICS_OFF" = "1" ] || return
+    log "haptics off enabled"
+    settings_put system haptic_feedback_enabled 0 common
+    settings_put system vibrate_when_ringing 0 common
+    settings_put system haptic_feedback_intensity 0 existing
+    settings_put system notification_vibration_intensity 0 existing
+    settings_put system media_vibration_intensity 0 existing
+    settings_put system touch_vibration_intensity 0 existing
+    settings_put secure haptic_feedback_enabled 0 existing
+}
+
+apply_dark_mode_settings() {
+    [ "$DARK_MODE" = "1" ] || return
+    log "dark mode enabled"
+    settings_put secure ui_night_mode 2 existing
+    settings_put system ui_night_mode 2 existing
+    cmd uimode night yes >/dev/null 2>&1 \
+        && log "cmd uimode night yes applied" \
+        || log "cmd uimode night yes unavailable"
+}
+
+write_black_wallpaper_png() {
+    if [ -f "$BLACK_WALLPAPER" ]; then
+        return 0
+    fi
+    if have_cmd base64; then
+        printf '%s\n' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGOSHzRgAAAAABJRU5ErkJggg==' | base64 -d > "$BLACK_WALLPAPER" 2>/dev/null
+        chmod 0644 "$BLACK_WALLPAPER" 2>/dev/null
+        [ -s "$BLACK_WALLPAPER" ] && return 0
+    fi
+    return 1
+}
+
+apply_dark_wallpaper_settings() {
+    [ "$DARK_WALLPAPER" = "1" ] || return
+    log "dark wallpaper requested"
+    if ! write_black_wallpaper_png; then
+        log "dark wallpaper skipped: could not create png"
+        return
+    fi
+    cmd wallpaper set "$BLACK_WALLPAPER" >/dev/null 2>&1 \
+        && log "dark wallpaper applied: $BLACK_WALLPAPER" \
+        || log "dark wallpaper unsupported by cmd wallpaper on this ROM"
+}
+
 package_valid() {
     case "$1" in
         ""|*[!A-Za-z0-9._-]*|.*|*..*|*.) return 1 ;;
@@ -363,6 +451,56 @@ write_thanox_helper() {
     } > "$target" 2>/dev/null
 }
 
+write_app_policy() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - App Policy Helper"
+        date
+        echo
+        echo "Goal:"
+        echo "- Lowest practical drain while keeping calls, SMS/telephony, Clock/alarm, GMS/IMS, SystemUI, root, and selected personal messengers working."
+        echo "- KernelSU module applies system settings only."
+        echo "- Thanox/Hail should handle app freezing and notification control."
+        echo
+        echo "Protected / whitelist packages:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Recommended apps to add if you use them:"
+        echo "- com.whatsapp"
+        echo "- org.telegram.messenger"
+        echo "- org.thunderdog.challegram"
+        echo "- your banking app only if you need alerts"
+        echo "- your authenticator app"
+        echo "- your calendar/reminder app if separate from Clock"
+        echo
+        echo "Thanox policy:"
+        echo "1. Add every protected package above to Thanox whitelist / do-not-freeze."
+        echo "2. For non-whitelist user apps: block background start, receivers, wakeups and background network where acceptable."
+        echo "3. On screen off: hibernate/freeze non-whitelist apps after a short delay."
+        echo "4. On app exit: refreeze noisy apps such as Paytm, shopping, food, video, social, news and games."
+        echo "5. Keep Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, KernelSU/Magisk and LSPosed alive."
+        echo
+        echo "Hail policy:"
+        echo "1. Select all non-whitelist user apps for freeze."
+        echo "2. Do not freeze protected packages."
+        echo "3. Use manual launch/unfreeze for apps you only need while using the phone."
+        echo "4. Hail package freeze is stronger than notification blocking; test banking/payment apps before relying on them."
+        echo
+        echo "Notification policy:"
+        echo "- Disable notifications for non-whitelist apps in Android Settings, App Manager, Thanox or app-specific settings."
+        echo "- This module intentionally does not run notification appops across all packages because that can break important alerts."
+        echo
+        echo "Telegram policy:"
+        echo "- Android/KernelSU cannot reliably allow only personal messages while globally muting groups/channels/bots."
+        echo "- In Telegram: Settings > Notifications and Sounds."
+        echo "- Keep Private Chats on."
+        echo "- Turn Groups off."
+        echo "- Turn Channels off."
+        echo "- Mute bots/other chats manually or with Telegram folders/notification exceptions."
+        echo "- Keep Telegram whitelisted only if instant personal messages are needed."
+    } > "$target" 2>/dev/null
+}
+
 cmd_export_thanox() {
     load_config
     mkdir -p "$(dirname "$THANOX_FILE_TMP")" 2>/dev/null
@@ -388,6 +526,31 @@ $THANOX_FILE_DOWNLOAD"
     fi
 }
 
+cmd_export_app_policy() {
+    load_config
+    mkdir -p "$(dirname "$APP_POLICY_FILE_TMP")" 2>/dev/null
+    wrote=""
+    if write_app_policy "$APP_POLICY_FILE_TMP"; then
+        chmod 0644 "$APP_POLICY_FILE_TMP" 2>/dev/null
+        wrote="$APP_POLICY_FILE_TMP"
+    fi
+    if [ -d /sdcard/Download ] || mkdir -p /sdcard/Download 2>/dev/null; then
+        if write_app_policy "$APP_POLICY_FILE_DOWNLOAD"; then
+            chmod 0644 "$APP_POLICY_FILE_DOWNLOAD" 2>/dev/null
+            [ -n "$wrote" ] && wrote="$wrote
+$APP_POLICY_FILE_DOWNLOAD"
+            [ -n "$wrote" ] || wrote="$APP_POLICY_FILE_DOWNLOAD"
+        fi
+    fi
+    log "app policy exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported app policy:"
+        echo "$wrote"
+    else
+        echo "Could not write app policy. Try again on Android after storage is mounted."
+    fi
+}
+
 print_setting() {
     printf '%s %-42s %s\n' "$1" "$2" "$(settings_get "$1" "$2")"
 }
@@ -400,12 +563,17 @@ cmd_apply() {
         exit 0
     fi
 
-    log "apply start ENABLED=$ENABLED AGGRESSIVE=$AGGRESSIVE SCANNING=$SCANNING_TWEAKS DISPLAY=$DISPLAY_IDLE_TWEAKS DOZE=$DOZE_TUNING"
+    log "apply start ENABLED=$ENABLED AGGRESSIVE=$AGGRESSIVE SCANNING=$SCANNING_TWEAKS DISPLAY=$DISPLAY_IDLE_TWEAKS DOZE=$DOZE_TUNING ULTRA=$ULTRA_IDLE SCREEN_ON=$SCREEN_ON_SAVER HAPTICS=$HAPTICS_OFF DARK=$DARK_MODE WALLPAPER=$DARK_WALLPAPER"
     apply_scanning_settings
     apply_display_idle_settings
     apply_deviceidle_constants
     apply_aggressive_settings
     apply_ultra_idle_settings
+    apply_screen_on_saver_settings
+    apply_haptics_settings
+    apply_dark_mode_settings
+    apply_dark_wallpaper_settings
+    [ "$EXPORT_APP_POLICY" = "1" ] && cmd_export_app_policy >/dev/null 2>&1
     log "apply complete"
     echo "Applied idle-drain tweaks."
 }
@@ -442,6 +610,12 @@ cmd_status() {
     echo "Display idle tweaks: $DISPLAY_IDLE_TWEAKS"
     echo "Doze tuning: $DOZE_TUNING"
     echo "Ultra idle: $ULTRA_IDLE"
+    echo "Screen-on saver: $SCREEN_ON_SAVER"
+    echo "Haptics off: $HAPTICS_OFF"
+    echo "Dark mode: $DARK_MODE"
+    echo "Dark wallpaper: $DARK_WALLPAPER"
+    echo "Export app policy: $EXPORT_APP_POLICY"
+    echo "Screen-on refresh rate: $SCREEN_ON_REFRESH_RATE"
     echo "Protected packages:"
     protected_print_lines | sed 's/^/  /'
     echo "Config: $CONFIG_FILE"
@@ -449,6 +623,7 @@ cmd_status() {
     echo "Backup: $BACKUP_FILE"
     echo "Diagnose: $DIAG_FILE"
     echo "Thanox helper: $THANOX_FILE_TMP"
+    echo "App policy: $APP_POLICY_FILE_TMP"
     [ -f "$BACKUP_FILE" ] && echo "Backup exists: yes" || echo "Backup exists: no"
 }
 
@@ -496,6 +671,14 @@ cmd_diagnose() {
             "global forced_app_standby_enabled" \
             "global app_auto_restriction_enabled" \
             "global adaptive_battery_management_enabled" \
+            "system peak_refresh_rate" \
+            "system min_refresh_rate" \
+            "system user_refresh_rate" \
+            "system haptic_feedback_enabled" \
+            "system vibrate_when_ringing" \
+            "system haptic_feedback_intensity" \
+            "system notification_vibration_intensity" \
+            "secure ui_night_mode" \
             "global enable_freezer" \
             "global cached_apps_freezer" \
             "secure nearby_scanning_enabled" \
@@ -574,11 +757,29 @@ set_bool_config() {
                 DOZE_TUNING=1
             fi
             ;;
+        screen-saver) SCREEN_ON_SAVER="$value" ;;
+        haptics) HAPTICS_OFF="$value" ;;
+        dark-mode) DARK_MODE="$value" ;;
+        dark-wallpaper) DARK_WALLPAPER="$value" ;;
+        app-policy) EXPORT_APP_POLICY="$value" ;;
         *) echo "Unknown config: $var"; exit 2 ;;
     esac
     save_config
     log "config: $var=$value"
     echo "$var set to $value"
+}
+
+set_refresh_rate() {
+    value="$1"
+    load_config
+    case "$value" in
+        60|90|120) ;;
+        *) echo "Usage: $0 set-refresh-rate 60|90|120"; exit 2 ;;
+    esac
+    SCREEN_ON_REFRESH_RATE="$value"
+    save_config
+    log "config: refresh-rate=$value"
+    echo "screen-on refresh rate set to $value"
 }
 
 case "$1" in
@@ -592,15 +793,22 @@ case "$1" in
     set-display) set_bool_config display "$2" ;;
     set-doze) set_bool_config doze "$2" ;;
     set-ultra) set_bool_config ultra "$2" ;;
+    set-screen-saver) set_bool_config screen-saver "$2" ;;
+    set-haptics) set_bool_config haptics "$2" ;;
+    set-dark-mode) set_bool_config dark-mode "$2" ;;
+    set-dark-wallpaper) set_bool_config dark-wallpaper "$2" ;;
+    set-export-app-policy) set_bool_config app-policy "$2" ;;
+    set-refresh-rate) set_refresh_rate "$2" ;;
     protected-list) cmd_protected_list ;;
     protected-add) protected_add_pkg "$2" ;;
     protected-remove) protected_remove_pkg "$2" ;;
     protected-reset) protected_reset ;;
     export-thanox) cmd_export_thanox ;;
+    export-app-policy) cmd_export_app_policy ;;
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {apply|restore|status|diagnose|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|logs|clear-logs}"
+        echo "Usage: $0 {apply|restore|status|diagnose|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|logs|clear-logs}"
         exit 2
         ;;
 esac
