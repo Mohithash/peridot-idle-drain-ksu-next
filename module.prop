@@ -1,6 +1,6 @@
 id=peridot_idle_drain
 name=Peridot Idle Drain Tweaks
-version=1.6.0
-versionCode=160
+version=1.7.0
+versionCode=170
 author=Mohithash + Codex helper
 description=KernelSU Next module with WebUI for source-informed Xiaomi peridot / VoltageOS idle-drain tuning.

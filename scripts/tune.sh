@@ -29,7 +29,9 @@ RESTORE_PACK_FILE_TMP="/data/local/tmp/peridot_idle_restore_pack.txt"
 RESTORE_PACK_FILE_DOWNLOAD="/sdcard/Download/peridot_idle_restore_pack.txt"
 BLACK_WALLPAPER="/data/local/tmp/peridot_black_wallpaper.png"
 DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.google.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.google.android.euicc,com.android.systemui,com.android.settings,com.android.permissioncontroller,me.weishu.kernelsu,com.rifsxd.ksunext,com.topjohnwu.magisk,org.lsposed.manager"
-RECOMMENDED_OPTIONAL_PACKAGES="com.whatsapp,org.telegram.messenger,org.thunderdog.challegram,com.google.android.apps.authenticator2,com.google.android.calendar"
+MY_TEMPLATE_PACKAGES="peridot_my_template_overview.txt peridot_thanox_my_rules.txt peridot_hail_my_lists.txt peridot_notification_my_plan.txt peridot_maps_temp_mode.txt peridot_payment_foreground_only.txt peridot_telegram_private_only.txt"
+MY_DEFAULT_WHITELIST_PACKAGES="com.android.dialer,com.google.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.google.android.euicc,com.android.systemui,com.android.settings,com.android.permissioncontroller,com.google.android.inputmethod.latin,com.android.inputmethod.latin,me.weishu.kernelsu,com.rifsxd.ksunext,com.topjohnwu.magisk,org.lsposed.manager,org.telegram.messenger,org.telegram.messenger.web,org.thunderdog.challegram,com.whatsapp"
+RECOMMENDED_OPTIONAL_PACKAGES="com.whatsapp,org.telegram.messenger,org.telegram.messenger.web,org.thunderdog.challegram,com.google.android.apps.authenticator2,com.google.android.calendar"
 
 ensure_files() {
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
@@ -510,6 +512,45 @@ protected_add_pkg() {
     save_config
     log "protected add: $pkg"
     echo "Added protected package: $pkg"
+}
+
+protected_add_pkg_no_exit() {
+    pkg="$1"
+    package_valid "$pkg" || return 1
+    protected_contains "$pkg" && return 0
+    if [ -n "$PROTECTED_PACKAGES" ]; then
+        PROTECTED_PACKAGES="$PROTECTED_PACKAGES,$pkg"
+    else
+        PROTECTED_PACKAGES="$pkg"
+    fi
+    return 0
+}
+
+cmd_set_my_whitelist_defaults() {
+    load_config
+    added=0
+    old_ifs="$IFS"
+    IFS=,
+    for pkg in $MY_DEFAULT_WHITELIST_PACKAGES; do
+        IFS="$old_ifs"
+        [ -n "$pkg" ] || { IFS=,; continue; }
+        if ! protected_contains "$pkg"; then
+            if protected_add_pkg_no_exit "$pkg"; then
+                added=$((added + 1))
+            fi
+        fi
+        IFS=,
+    done
+    IFS="$old_ifs"
+    save_config
+    log "my whitelist defaults added: $added"
+    echo "Added recommended protected defaults without duplicates: $added"
+    echo
+    echo "Protected packages now:"
+    protected_print_lines
+    echo
+    echo "Maps is intentionally not added as always-protected. Use the Maps temporary mode template."
+    echo "Paytm/payment apps are intentionally not protected. Use the payment foreground-only template."
 }
 
 protected_remove_pkg() {
@@ -1980,6 +2021,254 @@ cmd_export_hail_lists() {
     [ -n "$protected_wrote" ] && echo "$protected_wrote" || echo "not written"
 }
 
+my_template_write_file() {
+    name="$1"
+    target="$2"
+    {
+        case "$name" in
+            peridot_my_template_overview.txt)
+                echo "Peridot Idle Drain - Personal Usage Template"
+                date
+                echo
+                echo "Target: Xiaomi peridot running VoltageOS."
+                echo "Goal: calls, SMS, Clock/alarm and selected personal messenger stay normal. Maps works when needed. Everything else can be restricted, dozed, frozen or notification-muted manually through Thanox/Hail."
+                echo
+                echo "[Always alive]"
+                echo "- Phone, Dialer, Telecom, Telephony Provider"
+                echo "- SMS/Messages"
+                echo "- Clock/alarm"
+                echo "- GMS, GSF, IMS/eSIM/carrier basics"
+                echo "- SystemUI, Settings, Permission Controller"
+                echo "- KernelSU/Magisk and LSPosed"
+                echo "- selected messenger: Telegram/WhatsApp only if you need instant messages"
+                echo
+                echo "[Temporary only]"
+                echo "- Maps: unfreeze/allow while navigating, freeze/restrict after navigation or exit"
+                echo "- Banking/payment apps: allow while foreground, block notifications/background starts, freeze after exit"
+                echo
+                echo "[Non-whitelist]"
+                echo "- Thanox: screen-off restrict/freeze, block background starts and noisy receivers"
+                echo "- Hail: manual freeze list for apps you open only when needed"
+                echo "- Android settings: disable notifications for non-whitelist apps"
+                echo
+                echo "[Current protected packages]"
+                protected_print_lines | sed 's/^/- /'
+                ;;
+            peridot_thanox_my_rules.txt)
+                echo "Peridot Idle Drain - Personalized Thanox Rules"
+                date
+                echo
+                echo "Copy these concepts into Thanox manually. UI names vary by Thanox version."
+                echo
+                echo "[Never restrict/freeze]"
+                protected_print_lines | sed 's/^/- /'
+                echo
+                echo "[Rule 1: screen off ultra]"
+                echo "Trigger: screen off"
+                echo "Target: third-party apps not in protected list"
+                echo "Actions: prevent background start; restrict receivers/wakeups; hibernate/freeze after short delay"
+                echo "Exclude: Phone, SMS, Clock, GMS/GSF/IMS, SystemUI, root, LSPosed and selected messenger"
+                echo
+                echo "[Rule 2: foreground only apps]"
+                echo "Target: Paytm, banking, shopping, food, travel, news, video, browser, social apps you do not need instantly"
+                echo "When opened manually: allow foreground run"
+                echo "When app leaves foreground or screen turns off: block background start/receivers and freeze/hibernate"
+                echo "Notifications: off unless you explicitly need them"
+                echo
+                echo "[Rule 3: Maps temporary]"
+                echo "Target: com.google.android.apps.maps"
+                echo "When Maps is foreground or navigation is active: allow location, network and background service"
+                echo "After navigation ends or Maps exits: return to restricted/frozen state"
+                echo
+                echo "[Rule 4: night minimal]"
+                echo "Trigger: night schedule and screen off"
+                echo "Keep: calls, SMS and Clock/alarm"
+                echo "Optional: selected personal messenger"
+                echo "Freeze/restrict: all other user apps"
+                ;;
+            peridot_hail_my_lists.txt)
+                echo "Peridot Idle Drain - Personalized Hail Lists"
+                date
+                echo
+                echo "[Never freeze]"
+                protected_print_lines
+                echo
+                echo "[Do not protect by default]"
+                echo "com.google.android.apps.maps # temporary only; unfreeze when navigating"
+                echo "net.one97.paytm # example payment app; foreground only"
+                echo
+                echo "[Freeze candidates installed on this phone]"
+                installed_user_packages_not_protected | sed 's/^/- /'
+                echo
+                echo "Use Hail manually. This module does not freeze, disable or suspend packages."
+                ;;
+            peridot_notification_my_plan.txt)
+                echo "Peridot Idle Drain - Notification Plan"
+                date
+                echo
+                echo "[Keep notifications]"
+                echo "- Phone/calls"
+                echo "- SMS/Messages"
+                echo "- Clock/alarm"
+                echo "- selected personal messenger private chats"
+                echo "- Maps only while navigating if you want turn-by-turn alerts"
+                echo
+                echo "[Disable notifications]"
+                echo "- payment apps like Paytm unless a specific security/transaction category is needed"
+                echo "- shopping, food, social, games, video, music, browser, travel and news apps"
+                echo "- every installed non-protected app that does not need to wake you"
+                echo
+                echo "[Manual review candidates]"
+                installed_user_packages_not_protected | sed 's/^/- /'
+                echo
+                echo "Do this in Android notification settings or inside each app. This module does not run appops sweeps."
+                ;;
+            peridot_maps_temp_mode.txt)
+                echo "Peridot Idle Drain - Maps Temporary Mode"
+                date
+                echo
+                echo "Maps package: com.google.android.apps.maps"
+                echo
+                echo "Default state:"
+                echo "- not protected always"
+                echo "- frozen/restricted when not used"
+                echo "- location off or restricted when not needed"
+                echo
+                echo "When needed:"
+                echo "- unfreeze/open Maps manually"
+                echo "- allow location and network"
+                echo "- do not freeze during active navigation"
+                echo "- keep Google Play services protected"
+                echo
+                echo "After use:"
+                echo "- end navigation"
+                echo "- close Maps"
+                echo "- Thanox/Hail can refreeze/restrict after exit or screen off"
+                ;;
+            peridot_payment_foreground_only.txt)
+                echo "Peridot Idle Drain - Payment/Banking Foreground Only"
+                date
+                echo
+                echo "Examples: Paytm, banking, wallet, shopping and UPI helper apps."
+                echo
+                echo "Default state:"
+                echo "- not protected"
+                echo "- notifications off except categories you truly need"
+                echo "- background start blocked"
+                echo "- receivers/wakeups restricted where Thanox exposes safe controls"
+                echo "- frozen/hibernated after exit or screen off"
+                echo
+                echo "When opened manually:"
+                echo "- allow foreground network"
+                echo "- allow biometric/OTP flow while app is in front"
+                echo "- do not break SMS/Phone/GMS because OTP/calls may rely on them"
+                echo
+                echo "After exit:"
+                echo "- freeze or hibernate again"
+                echo "- keep notifications blocked"
+                ;;
+            peridot_telegram_private_only.txt)
+                echo "Peridot Idle Drain - Telegram Private-Only Setup"
+                date
+                echo
+                echo "Packages to protect only if Telegram must be instant:"
+                echo "- org.telegram.messenger"
+                echo "- org.telegram.messenger.web"
+                echo "- org.thunderdog.challegram"
+                echo
+                echo "Inside Telegram:"
+                echo "1. Settings > Notifications and Sounds"
+                echo "2. Private chats: enabled"
+                echo "3. Groups: disabled or muted by default"
+                echo "4. Channels: disabled or muted by default"
+                echo "5. Bots/Other: disabled or muted"
+                echo "6. Archive/mute noisy chats manually"
+                echo
+                echo "Android cannot reliably separate Telegram private/group/channel/bot notifications from KernelSU. Configure this inside Telegram."
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_my_template() {
+    load_config
+    wrote=""
+    for name in $MY_TEMPLATE_PACKAGES; do
+        tmp="/data/local/tmp/$name"
+        down="/sdcard/Download/$name"
+        result=""
+        mkdir -p "$(dirname "$tmp")" 2>/dev/null
+        if my_template_write_file "$name" "$tmp"; then
+            chmod 0644 "$tmp" 2>/dev/null
+            result="$tmp"
+        fi
+        if [ -d /sdcard/Download ] || mkdir -p /sdcard/Download 2>/dev/null; then
+            if my_template_write_file "$name" "$down"; then
+                chmod 0644 "$down" 2>/dev/null
+                [ -n "$result" ] && result="$result
+$down" || result="$down"
+            fi
+        fi
+        [ -n "$result" ] && wrote="$wrote
+$result"
+    done
+    log "my template exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported personal template pack:"
+        printf '%s\n' "$wrote" | sed '/^$/d'
+    else
+        echo "Could not write personal template pack. Try again after storage is mounted."
+    fi
+}
+
+write_quick_actions() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Quick Actions"
+        date
+        echo
+        echo "Apply personal ultra setup:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'"
+        echo
+        echo "Set profile:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-profile ultra'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-profile night'"
+        echo
+        echo "Safety and analysis:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh safety-check'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh analyze-all'"
+        echo
+        echo "Overnight test:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh overnight-start'"
+        echo "# sleep overnight"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh overnight-report'"
+        echo
+        echo "Personal template pack:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-my-whitelist-defaults'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-my-template'"
+        echo
+        echo "Manual app policy exports:"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-hail-lists'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-thanox-templates'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh notification-report'"
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_quick_actions() {
+    load_config
+    wrote="$(write_dual_file "/data/local/tmp/peridot_quick_actions.txt" "/sdcard/Download/peridot_quick_actions.txt" write_quick_actions)"
+    log "quick actions exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported quick actions:"
+        echo "$wrote"
+    else
+        echo "Could not write quick actions. Try again after storage is mounted."
+    fi
+}
+
 write_full_analysis() {
     target="$1"
     {
@@ -2225,12 +2514,15 @@ case "$1" in
     export-hail-lists) cmd_export_hail_lists ;;
     export-thanox-rules) cmd_export_thanox_rules ;;
     export-thanox-templates) cmd_export_thanox_templates ;;
+    export-my-template) cmd_export_my_template ;;
+    set-my-whitelist-defaults) cmd_set_my_whitelist_defaults ;;
+    export-quick-actions) cmd_export_quick_actions ;;
     notification-report) cmd_notification_report ;;
     my-setup) cmd_my_setup ;;
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|restore-category category|status|diagnose|analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report|new-apps-report|snapshot-apps|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|export-restore-pack|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-hail-lists|export-thanox-rules|export-thanox-templates|notification-report|my-setup|logs|clear-logs}"
+        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|restore-category category|status|diagnose|analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report|new-apps-report|snapshot-apps|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|export-restore-pack|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-hail-lists|export-thanox-rules|export-thanox-templates|export-my-template|set-my-whitelist-defaults|export-quick-actions|notification-report|my-setup|logs|clear-logs}"
         exit 2
         ;;
 esac

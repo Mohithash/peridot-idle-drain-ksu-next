@@ -216,11 +216,65 @@ Android/KernelSU cannot reliably allow only personal messages while globally mut
 - mute bots/other chats manually or through Telegram folders/notification exceptions
 - keep Telegram whitelisted only if instant personal messages matter
 
-## v1.6.0 All-in-One Analyzer Workflow
+## Personal Usage Template
 
-Version 1.6.0 is the final safe generic feature pass for Xiaomi peridot running VoltageOS. It keeps the module in the safe lane: KernelSU applies reversible system settings and generates reports, while Thanox/Hail remain responsible for manual app restriction.
+Version 1.7.0 adds a template pack tailored for this VoltageOS peridot workflow:
 
-After this release, more improvement needs your real overnight reports rather than more generic tweaks. The module can now tell you whether drain looks more like modem/radio, Wi-Fi/CNSS, alarms/apps, jobs, location, sensors, background network, or notification/app spam.
+- always alive: Phone, calls, SMS, Clock/alarm, telephony, IMS, GMS/GSF, SystemUI, root/KernelSU, LSPosed and selected messenger
+- temporary only: Maps, enabled while navigating and restricted/frozen again after navigation or app exit
+- foreground only: Paytm, banking, shopping and payment apps, allowed when opened manually, then restricted/frozen after exit
+- all other user apps: Thanox screen-off restrict/freeze plus Hail manual freeze
+- notifications: keep only calls, SMS, Clock/alarm and chosen personal messenger; disable non-whitelist notification spam manually
+
+The template pack is text-only. It does not directly freeze apps, disable packages, suspend packages, revoke notifications, or edit Thanox/Hail private databases.
+
+Recommended first run:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-my-whitelist-defaults'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-my-template'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-quick-actions'
+```
+
+The template pack writes these files to `/data/local/tmp/` and, when storage is mounted, `/sdcard/Download/`:
+
+```txt
+peridot_my_template_overview.txt
+peridot_thanox_my_rules.txt
+peridot_hail_my_lists.txt
+peridot_notification_my_plan.txt
+peridot_maps_temp_mode.txt
+peridot_payment_foreground_only.txt
+peridot_telegram_private_only.txt
+peridot_quick_actions.txt
+```
+
+`set-my-whitelist-defaults` adds recommended protected packages without duplicates. It includes common phone/SMS/Clock/GMS/IMS/SystemUI/root/LSPosed packages, common keyboards, Telegram variants and WhatsApp. Maps is intentionally not protected by default because the intended behavior is temporary navigation mode. Paytm/payment apps are intentionally not protected because the intended behavior is foreground-only usage with notifications muted.
+
+Telegram private-only behavior must be configured inside Telegram itself:
+
+- Private chats: on
+- Groups: off or muted
+- Channels: off or muted
+- Bots/other: muted manually
+
+## Battery-Neutral Module Design
+
+The module itself is designed to avoid becoming a battery drain source:
+
+- `service.sh` is one-shot after boot: it waits for boot completion, applies the selected profile, then exits.
+- There is no persistent daemon, no resident loop, and no periodic background polling.
+- The WebUI runs commands only when you open it or tap a button.
+- The WebUI does not use `setInterval` polling or network/CDN assets.
+- The module does not hold wakelocks, block wakelocks, or run a background scheduler.
+
+For ongoing app control, use Thanox/Hail rules manually. The module only exports templates and package lists.
+
+## v1.7.0 Personal Template Workflow
+
+Version 1.7.0 is the personal workflow release for Xiaomi peridot running VoltageOS. It keeps the module in the safe lane: KernelSU applies reversible system settings and generates reports/templates, while Thanox/Hail remain responsible for manual app restriction.
+
+After this release, more improvement needs your real overnight reports rather than more generic tweaks. The module can tell you whether drain looks more like modem/radio, Wi-Fi/CNSS, alarms/apps, jobs, location, sensors, background network, or notification/app spam.
 
 Recommended flow:
 
@@ -319,7 +373,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.6.0.zip
+dist/peridot-idle-drain-ksu-next-v1.7.0.zip
 ```
 
 Steps:
@@ -363,6 +417,9 @@ The WebUI provides:
 - Export Hail lists
 - Export Thanox rules
 - Export Thanox templates
+- My Template
+- Whitelist Defaults
+- Quick Actions
 - Notification report
 - Restore by category
 - Restore backed-up settings
@@ -527,6 +584,14 @@ Export Hail candidates:
 
 ```sh
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-hail'
+```
+
+Export the personalized template pack:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-my-whitelist-defaults'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-my-template'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-quick-actions'
 ```
 
 Export Thanox rules:

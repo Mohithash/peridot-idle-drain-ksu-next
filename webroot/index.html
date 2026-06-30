@@ -6,33 +6,40 @@
   <title>Peridot Idle Drain</title>
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: #101214;
-      --panel: #191d21;
-      --line: #30363d;
-      --text: #eef2f4;
-      --muted: #9ba6af;
-      --accent: #42c6a3;
-      --danger: #ff6b6b;
-      --button: #252b31;
+      color-scheme: dark;
+      --bg: #101414;
+      --surface: #171d1d;
+      --surface-high: #202727;
+      --surface-highest: #2a3131;
+      --outline: #3e4948;
+      --text: #edf2f0;
+      --muted: #b8c8c4;
+      --primary: #8fd8c9;
+      --on-primary: #003731;
+      --primary-container: #0f4f48;
+      --danger: #ffb4ab;
+      --danger-container: #5f1b18;
+      --shadow: rgba(0, 0, 0, .28);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at top left, rgba(143, 216, 201, .12), transparent 34rem),
+        var(--bg);
       color: var(--text);
-      font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font: 15px/1.48 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     main {
-      width: min(720px, 100%);
+      width: min(760px, 100%);
       margin: 0 auto;
       padding: 20px;
     }
     h1 {
-      margin: 0 0 4px;
-      font-size: 24px;
-      font-weight: 750;
+      margin: 8px 0 4px;
+      font-size: 28px;
+      font-weight: 760;
       letter-spacing: 0;
     }
     p {
@@ -40,31 +47,34 @@
       color: var(--muted);
     }
     section {
-      margin-top: 18px;
+      margin-top: 16px;
       padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
+      border: 1px solid color-mix(in srgb, var(--outline), transparent 16%);
+      border-radius: 24px;
+      background: linear-gradient(180deg, var(--surface-high), var(--surface));
+      box-shadow: 0 10px 28px var(--shadow);
     }
     .row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 12px 0;
-      border-bottom: 1px solid var(--line);
+      min-height: 62px;
+      padding: 10px 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--outline), transparent 35%);
     }
     .row:last-child { border-bottom: 0; }
     .label {
       display: grid;
-      gap: 2px;
+      gap: 3px;
+      min-width: 0;
     }
-    .label strong { font-size: 15px; }
+    .label strong { font-size: 15px; font-weight: 720; }
     .label span { color: var(--muted); font-size: 13px; }
     .switch {
       position: relative;
       width: 52px;
-      height: 30px;
+      height: 32px;
       flex: 0 0 auto;
     }
     .switch input {
@@ -76,23 +86,31 @@
       position: absolute;
       cursor: pointer;
       inset: 0;
-      background: #3a4148;
+      background: var(--surface-highest);
+      border: 2px solid var(--outline);
       border-radius: 999px;
-      transition: .18s;
+      transition: background .16s ease, border-color .16s ease;
     }
     .slider:before {
       content: "";
       position: absolute;
-      width: 24px;
-      height: 24px;
-      left: 3px;
-      top: 3px;
-      background: white;
+      width: 16px;
+      height: 16px;
+      left: 6px;
+      top: 6px;
+      background: var(--muted);
       border-radius: 50%;
-      transition: .18s;
+      transition: transform .16s ease, width .16s ease, background .16s ease;
     }
-    input:checked + .slider { background: var(--accent); }
-    input:checked + .slider:before { transform: translateX(22px); }
+    input:checked + .slider {
+      background: var(--primary-container);
+      border-color: var(--primary);
+    }
+    input:checked + .slider:before {
+      width: 22px;
+      transform: translateX(16px);
+      background: var(--primary);
+    }
     .actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -104,50 +122,39 @@
       gap: 10px;
       margin-top: 12px;
     }
-    input[type="text"] {
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0 12px;
-      background: #0b0d0f;
+    input[type="text"], input[type="time"], input[type="number"], select {
+      min-height: 46px;
+      border: 1px solid var(--outline);
+      border-radius: 14px;
+      padding: 0 14px;
+      background: var(--surface-highest);
       color: var(--text);
       font: inherit;
+      outline: none;
     }
-    input[type="time"], input[type="number"] {
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0 12px;
-      background: #0b0d0f;
-      color: var(--text);
-      font: inherit;
-    }
-    select {
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 0 12px;
-      background: #0b0d0f;
-      color: var(--text);
-      font: inherit;
+    input:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary), transparent 76%);
     }
     button {
-      min-height: 44px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--button);
-      color: var(--text);
+      min-height: 46px;
+      border: 1px solid transparent;
+      border-radius: 22px;
+      background: var(--surface-highest);
+      color: var(--primary);
       font: inherit;
-      font-weight: 650;
+      font-weight: 680;
       cursor: pointer;
+      padding: 0 16px;
     }
+    button:active { transform: translateY(1px); }
     button.primary {
-      border-color: color-mix(in srgb, var(--accent), black 30%);
-      background: var(--accent);
-      color: #06120f;
+      background: var(--primary);
+      color: var(--on-primary);
     }
     button.danger {
-      border-color: color-mix(in srgb, var(--danger), black 30%);
+      border-color: color-mix(in srgb, var(--danger), transparent 50%);
+      background: var(--danger-container);
       color: var(--danger);
     }
     pre {
@@ -157,24 +164,27 @@
       white-space: pre-wrap;
       word-break: break-word;
       margin: 12px 0 0;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #0b0d0f;
-      color: #d7dee4;
+      padding: 14px;
+      border: 1px solid var(--outline);
+      border-radius: 16px;
+      background: #0b0f0f;
+      color: #d7e3df;
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     }
     .error {
       display: none;
       margin-top: 12px;
       padding: 12px;
-      border: 1px solid #6d3434;
-      border-radius: 8px;
-      background: #241616;
-      color: #ffb3b3;
+      border: 1px solid color-mix(in srgb, var(--danger), transparent 45%);
+      border-radius: 16px;
+      background: var(--danger-container);
+      color: var(--danger);
     }
     @media (max-width: 520px) {
       main { padding: 16px; }
+      h1 { font-size: 25px; }
+      section { border-radius: 20px; }
+      .row { align-items: flex-start; }
       .actions { grid-template-columns: 1fr; }
       .package-tools { grid-template-columns: 1fr; }
     }
@@ -388,6 +398,9 @@
         <button id="exportThanoxTemplates">Thanox templates</button>
         <button id="exportHail">Export Hail</button>
         <button id="exportHailLists">Hail lists</button>
+        <button id="myTemplate">My Template</button>
+        <button id="whitelistDefaults">Whitelist Defaults</button>
+        <button id="quickActions">Quick Actions</button>
         <button id="notificationReport">Notification report</button>
         <button id="exportPolicy">Export app policy</button>
       </div>
@@ -721,6 +734,19 @@
 
     document.getElementById('exportHailLists').addEventListener('click', async () => {
       show(await run('export-hail-lists'));
+    });
+
+    document.getElementById('myTemplate').addEventListener('click', async () => {
+      show(await run('export-my-template'));
+    });
+
+    document.getElementById('whitelistDefaults').addEventListener('click', async () => {
+      show(await run('set-my-whitelist-defaults'));
+      await refresh();
+    });
+
+    document.getElementById('quickActions').addEventListener('click', async () => {
+      show(await run('export-quick-actions'));
     });
 
     document.getElementById('notificationReport').addEventListener('click', async () => {
