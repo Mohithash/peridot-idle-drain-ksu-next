@@ -8,4 +8,4 @@ echo
 sh "$MODDIR/scripts/tune.sh" status
 echo
 echo "Recent log:"
-sh "$MODDIR/scripts/tune.sh" logs | tail -n 40
+sh "$MODDIR/scripts/tune.sh" logs

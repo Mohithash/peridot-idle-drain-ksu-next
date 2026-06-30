@@ -16,10 +16,8 @@ const entries = [
   'action.sh',
   'README.md',
   'LICENSE',
-  '.gitignore',
   'scripts/tune.sh',
-  'webroot/index.html',
-  'webroot/app.js'
+  'webroot/index.html'
 ];
 
 fs.mkdirSync(outDir, { recursive: true });
