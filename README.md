@@ -4,6 +4,8 @@ KernelSU Next module with WebUI for reducing idle battery drain on Xiaomi perido
 
 This module applies conservative Android settings that commonly affect overnight drain. It is designed to be reversible, visible through logs, and safe for daily use.
 
+GitHub repo: <https://github.com/Mohithash/peridot-idle-drain-ksu-next>
+
 ## Overview
 
 Peridot Idle Drain Tweaks runs after boot through KernelSU Next and applies a small set of idle-focused settings. The goal is to reduce background wakeups from scanning, ambient display, network recommendation, and device-idle behavior without disabling core phone features.
@@ -16,6 +18,8 @@ The module includes:
 - command-line control script at `scripts/tune.sh`
 - backup and restore support
 - log output for troubleshooting
+
+Author: Mohithash
 
 Default configuration:
 
@@ -270,9 +274,23 @@ The module itself is designed to avoid becoming a battery drain source:
 
 For ongoing app control, use Thanox/Hail rules manually. The module only exports templates and package lists.
 
-## v1.7.0 Personal Template Workflow
+## v1.7.2 Polish Release
 
-Version 1.7.0 is the personal workflow release for Xiaomi peridot running VoltageOS. It keeps the module in the safe lane: KernelSU applies reversible system settings and generates reports/templates, while Thanox/Hail remain responsible for manual app restriction.
+Version 1.7.2 improves the WebUI wording and layout, fixes module metadata, adds the GitHub repo link, adds profile explanations, and adds `reset-all` for clean uninstall preparation.
+
+The WebUI is split into beginner-friendly sections:
+
+- **Quick Setup**: recommended setup, safety check, and personal template export.
+- **Profile**: simple presets with what is affected and what is not affected.
+- **Safety / Reports**: overnight, wakelock, alarm, job, location, sensor and network reports.
+- **App Control Exports**: Thanox/Hail/notification helper files.
+- **Advanced**: individual switches, pause/resume, restore, logs, and reset-all.
+
+Profiles are explained before applying. For example, Ultra affects scanning, display idle, Doze, screen saver, haptics, dark mode and 60 Hz, but does not stop calls, SMS, Clock, IMS, modem, GMS, SystemUI or root.
+
+## Personal Template Workflow
+
+This personal workflow is for Xiaomi peridot running VoltageOS. It keeps the module in the safe lane: KernelSU applies reversible system settings and generates reports/templates, while Thanox/Hail remain responsible for manual app restriction.
 
 After this release, more improvement needs your real overnight reports rather than more generic tweaks. The module can tell you whether drain looks more like modem/radio, Wi-Fi/CNSS, alarms/apps, jobs, location, sensors, background network, or notification/app spam.
 
@@ -373,7 +391,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.7.0.zip
+dist/peridot-idle-drain-ksu-next-v1.7.2.zip
 ```
 
 Steps:
@@ -656,15 +674,23 @@ Diagnosis reports are written to:
 /data/local/tmp/peridot_idle_drain_diagnose.txt
 ```
 
-To restore original settings:
+Best uninstall preparation:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh reset-all'
+```
+
+`reset-all` restores backed-up Android settings when available, resets module configuration to defaults, and removes known module-generated report/export files. It does not uninstall the module.
+
+Then disable or uninstall the module from KernelSU Next and reboot.
+
+To restore original settings while keeping module config and generated reports:
 
 ```sh
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore'
 ```
 
-Then disable or uninstall the module from KernelSU Next and reboot.
-
-If you uninstall without restoring first, Android may keep the changed settings because they are stored in the system settings database. Restore first if you want to go back to previous values.
+If you uninstall without restoring or resetting first, Android may keep the changed settings because they are stored in the system settings database. Restore or reset first if you want to go back to previous values.
 
 ## Idle Drain Testing
 
@@ -707,5 +733,5 @@ adb logcat -d > logcat.txt
 ## Credits
 
 - Created for Xiaomi peridot / VoltageOS idle-drain testing.
-- Maintained by Mohithash with Codex assistance.
+- Maintained by Mohithash.
 - Thanks to the VoltageOS and peridot maintainers for the base ROM/device work.

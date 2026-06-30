@@ -1045,6 +1045,73 @@ cmd_restore() {
     echo "Restored backed-up settings."
 }
 
+remove_exact_file() {
+    file="$1"
+    [ -f "$file" ] || return
+    rm -f "$file" 2>/dev/null \
+        && echo "Removed: $file" \
+        || echo "Could not remove: $file"
+}
+
+reset_config_defaults() {
+    rm -f "$CONFIG_FILE" 2>/dev/null
+    ensure_files
+}
+
+cmd_reset_all() {
+    ensure_files
+    log "reset-all requested"
+    echo "Reset all requested."
+    echo
+    if [ -f "$BACKUP_FILE" ]; then
+        cmd_restore
+    else
+        echo "No settings backup found; skipping settings restore."
+    fi
+    echo
+    echo "Resetting module config to defaults..."
+    reset_config_defaults
+    echo "Config reset: $CONFIG_FILE"
+    echo
+    echo "Removing module-generated reports and exports..."
+    for file in \
+        "$LOG_FILE" \
+        "$BACKUP_FILE" \
+        "$DIAG_FILE" \
+        "$SAFETY_FILE" \
+        "$BASELINE_FILE" \
+        "$OVERNIGHT_FILE" \
+        "$THANOX_FILE_TMP" \
+        "$APP_POLICY_FILE_TMP" \
+        "$HAIL_FILE_TMP" \
+        "$HAIL_PROTECTED_FILE_TMP" \
+        "$THANOX_RULES_FILE_TMP" \
+        "$NOTIFICATION_FILE_TMP" \
+        "$MODULE_BACKUP_FILE_TMP" \
+        "$FULL_ANALYSIS_FILE_TMP" \
+        "$INSTALLED_APPS_SNAPSHOT" \
+        "$RESTORE_PACK_FILE_TMP" \
+        "$BLACK_WALLPAPER" \
+        "/data/local/tmp/peridot_installed_apps_current.txt" \
+        "/data/local/tmp/peridot_quick_actions.txt" \
+        "$THANOX_FILE_DOWNLOAD" \
+        "$APP_POLICY_FILE_DOWNLOAD" \
+        "$HAIL_FILE_DOWNLOAD" \
+        "$HAIL_PROTECTED_FILE_DOWNLOAD" \
+        "$THANOX_RULES_FILE_DOWNLOAD" \
+        "$NOTIFICATION_FILE_DOWNLOAD" \
+        "$MODULE_BACKUP_FILE_DOWNLOAD" \
+        "$FULL_ANALYSIS_FILE_DOWNLOAD" \
+        "$RESTORE_PACK_FILE_DOWNLOAD" \
+        "/sdcard/Download/peridot_quick_actions.txt"; do
+        remove_exact_file "$file"
+    done
+    for name in $MY_TEMPLATE_PACKAGES; do
+        remove_exact_file "/sdcard/Download/$name"
+    done
+    echo "Now disable or uninstall the module from KernelSU Next, then reboot."
+}
+
 cmd_status() {
     load_config
     echo "Peridot Idle Drain Tweaks"
@@ -2469,6 +2536,7 @@ case "$1" in
     set-profile) cmd_set_profile "$2" ;;
     apply-profile) cmd_apply_profile "$2" ;;
     restore) cmd_restore ;;
+    reset-all) cmd_reset_all ;;
     status) cmd_status ;;
     diagnose) cmd_diagnose ;;
     analyze-all) cmd_analyze_all ;;
@@ -2522,7 +2590,7 @@ case "$1" in
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|restore-category category|status|diagnose|analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report|new-apps-report|snapshot-apps|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|export-restore-pack|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-hail-lists|export-thanox-rules|export-thanox-templates|export-my-template|set-my-whitelist-defaults|export-quick-actions|notification-report|my-setup|logs|clear-logs}"
+        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|reset-all|restore-category category|status|diagnose|analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report|new-apps-report|snapshot-apps|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|export-restore-pack|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-hail-lists|export-thanox-rules|export-thanox-templates|export-my-template|set-my-whitelist-defaults|export-quick-actions|notification-report|my-setup|logs|clear-logs}"
         exit 2
         ;;
 esac

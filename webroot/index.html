@@ -19,38 +19,49 @@
       --primary-container: #0f4f48;
       --danger: #ffb4ab;
       --danger-container: #5f1b18;
+      --ok: #b9f6ca;
       --shadow: rgba(0, 0, 0, .28);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      background:
-        radial-gradient(circle at top left, rgba(143, 216, 201, .12), transparent 34rem),
-        var(--bg);
+      background: var(--bg);
       color: var(--text);
       font: 15px/1.48 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     main {
-      width: min(760px, 100%);
+      width: min(820px, 100%);
       margin: 0 auto;
-      padding: 20px;
+      padding: 18px;
+    }
+    header {
+      display: grid;
+      gap: 6px;
+      padding: 8px 2px 4px;
     }
     h1 {
-      margin: 8px 0 4px;
-      font-size: 28px;
+      margin: 0;
+      font-size: 27px;
       font-weight: 760;
       letter-spacing: 0;
     }
-    p {
+    h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 740;
+      letter-spacing: 0;
+    }
+    p, a {
       margin: 0;
       color: var(--muted);
     }
+    a { color: var(--primary); text-decoration: none; }
     section {
-      margin-top: 16px;
+      margin-top: 14px;
       padding: 16px;
-      border: 1px solid color-mix(in srgb, var(--outline), transparent 16%);
-      border-radius: 24px;
+      border: 1px solid var(--outline);
+      border-radius: 22px;
       background: linear-gradient(180deg, var(--surface-high), var(--surface));
       box-shadow: 0 10px 28px var(--shadow);
     }
@@ -58,9 +69,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      min-height: 62px;
-      padding: 10px 0;
+      gap: 14px;
+      min-height: 58px;
+      padding: 9px 0;
       border-bottom: 1px solid color-mix(in srgb, var(--outline), transparent 35%);
     }
     .row:last-child { border-bottom: 0; }
@@ -71,17 +82,39 @@
     }
     .label strong { font-size: 15px; font-weight: 720; }
     .label span { color: var(--muted); font-size: 13px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      border-radius: 999px;
+      padding: 0 12px;
+      background: var(--primary-container);
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 680;
+    }
+    .explain {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid color-mix(in srgb, var(--primary), transparent 45%);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--primary-container), transparent 40%);
+    }
+    .explain strong { color: var(--ok); }
     .switch {
       position: relative;
       width: 52px;
       height: 32px;
       flex: 0 0 auto;
     }
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
+    .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute;
       cursor: pointer;
@@ -111,19 +144,9 @@
       transform: translateX(16px);
       background: var(--primary);
     }
-    .actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .package-tools {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 10px;
-      margin-top: 12px;
-    }
-    input[type="text"], input[type="time"], input[type="number"], select {
+    input[type="text"], input[type="time"], select {
       min-height: 46px;
+      min-width: 0;
       border: 1px solid var(--outline);
       border-radius: 14px;
       padding: 0 14px;
@@ -148,18 +171,15 @@
       padding: 0 16px;
     }
     button:active { transform: translateY(1px); }
-    button.primary {
-      background: var(--primary);
-      color: var(--on-primary);
-    }
+    button.primary { background: var(--primary); color: var(--on-primary); }
     button.danger {
       border-color: color-mix(in srgb, var(--danger), transparent 50%);
       background: var(--danger-container);
       color: var(--danger);
     }
     pre {
-      min-height: 220px;
-      max-height: 420px;
+      min-height: 210px;
+      max-height: 440px;
       overflow: auto;
       white-space: pre-wrap;
       word-break: break-word;
@@ -180,138 +200,144 @@
       background: var(--danger-container);
       color: var(--danger);
     }
-    @media (max-width: 520px) {
-      main { padding: 16px; }
-      h1 { font-size: 25px; }
-      section { border-radius: 20px; }
+    details {
+      margin-top: 12px;
+      border-top: 1px solid color-mix(in srgb, var(--outline), transparent 35%);
+      padding-top: 12px;
+    }
+    summary {
+      cursor: pointer;
+      color: var(--primary);
+      font-weight: 720;
+    }
+    @media (max-width: 560px) {
+      main { padding: 14px; }
+      h1 { font-size: 24px; }
+      section { border-radius: 18px; }
       .row { align-items: flex-start; }
-      .actions { grid-template-columns: 1fr; }
-      .package-tools { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+      button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>Peridot Idle Drain</h1>
-    <p>KernelSU Next controls for conservative idle-drain tuning.</p>
+    <header>
+      <h1>Peridot Idle Drain</h1>
+      <p>Battery tuning for Xiaomi peridot running VoltageOS. Author: Mohithash.</p>
+      <a href="https://github.com/Mohithash/peridot-idle-drain-ksu-next">github.com/Mohithash/peridot-idle-drain-ksu-next</a>
+    </header>
 
     <div id="apiError" class="error">KernelSU WebUI API unavailable. Open this page from KernelSU Next module WebUI.</div>
 
     <section>
+      <h2>Quick Setup</h2>
+      <div class="grid">
+        <button class="primary" id="mySetup">Apply My Setup</button>
+        <button id="apply">Apply Current Settings</button>
+        <button id="safetyCheck">Check Calls + Clock</button>
+        <button id="exportMyTemplate">Export My Templates</button>
+      </div>
+      <pre id="output">Loading status...</pre>
+    </section>
+
+    <section>
+      <h2>Profile</h2>
       <div class="row">
         <div class="label">
-          <strong>Profile</strong>
-          <span>Choose a safe preset for daily use, overnight idle, or screen-on saving.</span>
+          <strong>Active profile</strong>
+          <span>Pick a simple preset. Advanced switches below can still override details.</span>
         </div>
         <select id="profile">
           <option value="balanced">Balanced</option>
-          <option value="idle">Idle</option>
-          <option value="ultra">Ultra</option>
-          <option value="night">Night</option>
-          <option value="screen">Screen</option>
+          <option value="idle">Idle saver</option>
+          <option value="ultra">Ultra idle</option>
+          <option value="night">Night profile</option>
+          <option value="screen">Screen-on saver</option>
         </select>
       </div>
-      <div class="row">
-        <div class="label">
-          <strong>Night schedule</strong>
-          <span>Use Night profile during the selected window. Calls and Clock stay protected.</span>
-        </div>
-        <label class="switch">
-          <input id="nightSchedule" type="checkbox">
-          <span class="slider"></span>
-        </label>
+      <div id="profileExplain" class="explain"></div>
+      <div class="grid" style="margin-top:12px">
+        <button class="primary" id="applyProfile">Apply Selected Profile</button>
+        <button id="idleScore">Idle Score</button>
       </div>
-      <div class="row">
-        <div class="label">
-          <strong>Night window</strong>
-          <span>Applies after boot when current time is inside this range.</span>
+      <details>
+        <summary>Night schedule</summary>
+        <div class="row">
+          <div class="label">
+            <strong>Use Night profile automatically</strong>
+            <span>Applies at boot if the current time is inside the window.</span>
+          </div>
+          <label class="switch">
+            <input id="nightSchedule" type="checkbox">
+            <span class="slider"></span>
+          </label>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <input id="nightStart" type="time">
-          <input id="nightEnd" type="time">
+        <div class="row">
+          <div class="label">
+            <strong>Night window</strong>
+            <span>Default is 23:00 to 07:00.</span>
+          </div>
+          <div class="grid">
+            <input id="nightStart" type="time">
+            <input id="nightEnd" type="time">
+          </div>
         </div>
-      </div>
-      <div class="actions">
-        <button id="applyProfile">Apply profile</button>
-        <button id="saveNightWindow">Save night window</button>
+        <button id="saveNightWindow">Save Night Window</button>
+      </details>
+    </section>
+
+    <section>
+      <h2>Safety / Reports</h2>
+      <div class="grid">
+        <button id="overnightStart">Overnight Start</button>
+        <button id="overnightReport">Overnight Report</button>
+        <button class="primary" id="analyzeAll">Analyze All</button>
+        <button id="diagnose">Diagnose</button>
+        <button id="wakelockReport">Wakelocks</button>
+        <button id="alarmReport">Alarms</button>
+        <button id="jobsReport">Jobs</button>
+        <button id="locationReport">Location</button>
+        <button id="sensorReport">Sensors</button>
+        <button id="networkReport">Network</button>
       </div>
     </section>
 
     <section>
+      <h2>App Control Exports</h2>
+      <p>KernelSU does not freeze apps. Export lists here, then apply them manually in Thanox or Hail.</p>
+      <div class="row">
+        <div class="label">
+          <strong>Protected app package</strong>
+          <span>Calls, SMS, Clock, GMS, IMS and root are protected by default. Add only apps you need instantly.</span>
+        </div>
+        <input id="packageName" type="text" placeholder="org.telegram.messenger" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="grid">
+        <button id="addPackage">Add Protected</button>
+        <button id="removePackage">Remove Protected</button>
+        <button id="listPackages">Show Protected</button>
+        <button id="whitelistDefaults">Use My Defaults</button>
+        <button id="exportHailLists">Export Hail Lists</button>
+        <button id="exportThanoxTemplates">Export Thanox Templates</button>
+        <button id="notificationReport">Notification Review</button>
+        <button id="newAppsReport">New Apps Report</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Advanced</h2>
       <div class="row">
         <div class="label">
           <strong>Enabled</strong>
-          <span>Apply tweaks automatically after boot.</span>
+          <span>Apply selected settings once after boot.</span>
         </div>
-        <label class="switch">
-          <input id="enabled" type="checkbox">
-          <span class="slider"></span>
-        </label>
+        <label class="switch"><input id="enabled" type="checkbox"><span class="slider"></span></label>
       </div>
       <div class="row">
         <div class="label">
-          <strong>Aggressive mode</strong>
-          <span>Extra discovery and assistant reductions.</span>
-        </div>
-        <label class="switch">
-          <input id="aggressive" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Scanning tweaks</strong>
-          <span>Wi-Fi/Bluetooth/Nearby background scan reductions.</span>
-        </div>
-        <label class="switch">
-          <input id="scanning" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Display idle tweaks</strong>
-          <span>AOD, ambient, tap, pickup and screen-off UDFPS reductions.</span>
-        </div>
-        <label class="switch">
-          <input id="display" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Doze tuning</strong>
-          <span>Moderate device-idle constants for deeper idle.</span>
-        </div>
-        <label class="switch">
-          <input id="doze" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Ultra idle</strong>
-          <span>Most aggressive safe profile. Keeps calls, Clock, GMS, SystemUI and root protected.</span>
-        </div>
-        <label class="switch">
-          <input id="ultra" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Screen-on saver</strong>
-          <span>Caps refresh rate and disables extra discovery while the screen is on.</span>
-        </div>
-        <label class="switch">
-          <input id="screenSaver" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Refresh cap</strong>
-          <span>Lower values save more battery during use.</span>
+          <strong>Screen-on refresh cap</strong>
+          <span>60 Hz saves the most battery while using the phone.</span>
         </div>
         <select id="refreshRate">
           <option value="60">60 Hz</option>
@@ -319,173 +345,128 @@
           <option value="120">120 Hz</option>
         </select>
       </div>
-      <div class="row">
-        <div class="label">
-          <strong>Haptics off</strong>
-          <span>Disables touch/ring/notification vibration where supported.</span>
-        </div>
-        <label class="switch">
-          <input id="haptics" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Dark mode</strong>
-          <span>Requests Android dark theme.</span>
-        </div>
-        <label class="switch">
-          <input id="darkMode" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="row">
-        <div class="label">
-          <strong>Dark wallpaper</strong>
-          <span>Best-effort black wallpaper using Android wallpaper command.</span>
-        </div>
-        <label class="switch">
-          <input id="darkWallpaper" type="checkbox">
-          <span class="slider"></span>
-        </label>
-      </div>
-    </section>
-
-    <section>
-      <div class="actions">
-        <button class="primary" id="apply">Apply now</button>
-        <button class="primary" id="mySetup">My Setup</button>
-        <button id="safetyCheck">Safety Check</button>
-        <button id="overnightStart">Overnight Start</button>
-        <button id="overnightReport">Overnight Report</button>
-        <button class="primary" id="analyzeAll">Analyze All</button>
-        <button id="wakelockReport">Wakelocks</button>
-        <button id="alarmReport">Alarms</button>
-        <button id="jobsReport">Jobs</button>
-        <button id="locationReport">Location</button>
-        <button id="sensorReport">Sensors</button>
-        <button id="networkReport">Network</button>
-        <button id="newAppsReport">New Apps</button>
-        <button id="snapshotApps">Snapshot Apps</button>
-        <button id="diagnose">Diagnose</button>
-        <button id="idleScore">Idle score</button>
-        <button id="exportRestorePack">Export Restore Pack</button>
-        <button id="exportBackup">Export backup</button>
+      <details>
+        <summary>Advanced toggles</summary>
+        <div class="row"><div class="label"><strong>Aggressive mode</strong><span>Extra discovery and assistant reductions.</span></div><label class="switch"><input id="aggressive" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Scanning tweaks</strong><span>Wi-Fi, Bluetooth and nearby scan reductions.</span></div><label class="switch"><input id="scanning" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Display idle tweaks</strong><span>AOD, ambient, tap, pickup and screen-off UDFPS reductions.</span></div><label class="switch"><input id="display" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Doze tuning</strong><span>Device-idle constants for deeper idle.</span></div><label class="switch"><input id="doze" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Ultra idle</strong><span>Enables stricter app standby and freezer hints where supported.</span></div><label class="switch"><input id="ultra" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Screen-on saver</strong><span>Refresh cap and lower screen-on background discovery.</span></div><label class="switch"><input id="screenSaver" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Haptics off</strong><span>Disables touch and notification vibration where supported.</span></div><label class="switch"><input id="haptics" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Dark mode</strong><span>Requests Android dark theme.</span></div><label class="switch"><input id="darkMode" type="checkbox"><span class="slider"></span></label></div>
+        <div class="row"><div class="label"><strong>Dark wallpaper</strong><span>Best-effort black wallpaper.</span></div><label class="switch"><input id="darkWallpaper" type="checkbox"><span class="slider"></span></label></div>
+      </details>
+      <div class="grid" style="margin-top:12px">
         <button id="pause30">Pause 30m</button>
         <button id="resume">Resume</button>
-        <button id="restore">Restore</button>
-        <button id="viewLogs">View logs</button>
-        <button class="danger" id="clearLogs">Clear logs</button>
+        <button id="exportRestorePack">Export Restore Pack</button>
+        <button id="exportBackup">Export Backup</button>
+        <button id="restore">Restore Settings</button>
+        <button id="viewLogs">View Logs</button>
+        <button id="clearLogs">Clear Logs</button>
+        <button id="snapshotApps">Snapshot Apps</button>
       </div>
-      <pre id="output">Loading status...</pre>
-    </section>
-
-    <section>
-      <div class="label">
-        <strong>Protected packages for Thanox</strong>
-        <span>Add apps that must stay alive, then export the helper file and mirror the list in Thanox.</span>
+      <details>
+        <summary>Restore categories</summary>
+        <div class="grid" style="margin-top:10px">
+          <button data-restore-category="scanning">Restore scanning</button>
+          <button data-restore-category="display">Restore display</button>
+          <button data-restore-category="doze">Restore doze</button>
+          <button data-restore-category="screen">Restore screen</button>
+          <button data-restore-category="haptics">Restore haptics</button>
+          <button data-restore-category="dark">Restore dark</button>
+        </div>
+      </details>
+      <div class="explain" style="margin-top:12px">
+        <strong>Reset all before uninstall</strong>
+        <span>Restores backed-up settings, resets module config, and removes known generated reports/exports. It does not uninstall the module; use KernelSU Next after reset.</span>
       </div>
-      <div class="package-tools">
-        <input id="packageName" type="text" placeholder="com.example.app" autocomplete="off" spellcheck="false">
-        <button id="addPackage">Add</button>
-        <button id="removePackage">Remove</button>
-      </div>
-      <div class="actions" style="margin-top:10px">
-        <button id="listPackages">Show protected</button>
-        <button id="resetPackages">Reset defaults</button>
-        <button id="exportThanox">Export Thanox helper</button>
-        <button id="exportThanoxRules">Export Thanox rules</button>
-        <button id="exportThanoxTemplates">Thanox templates</button>
-        <button id="exportHail">Export Hail</button>
-        <button id="exportHailLists">Hail lists</button>
-        <button id="myTemplate">My Template</button>
-        <button id="whitelistDefaults">Whitelist Defaults</button>
-        <button id="quickActions">Quick Actions</button>
-        <button id="notificationReport">Notification report</button>
-        <button id="exportPolicy">Export app policy</button>
-      </div>
-    </section>
-
-    <section>
-      <div class="label">
-        <strong>Restore categories</strong>
-        <span>Restore only one group from the module backup, or restore all backed-up settings.</span>
-      </div>
-      <div class="actions" style="margin-top:10px">
-        <button data-restore-category="scanning">Restore scanning</button>
-        <button data-restore-category="display">Restore display</button>
-        <button data-restore-category="doze">Restore doze</button>
-        <button data-restore-category="screen">Restore screen</button>
-        <button data-restore-category="haptics">Restore haptics</button>
-        <button data-restore-category="dark">Restore dark</button>
-      </div>
+      <button class="danger" id="resetAll" style="margin-top:10px">Reset All</button>
     </section>
   </main>
 
   <script type="module">
-    import { exec } from 'kernelsu';
-
     const output = document.getElementById('output');
     const apiError = document.getElementById('apiError');
-    const enabled = document.getElementById('enabled');
-    const profile = document.getElementById('profile');
-    const nightSchedule = document.getElementById('nightSchedule');
-    const nightStart = document.getElementById('nightStart');
-    const nightEnd = document.getElementById('nightEnd');
-    const aggressive = document.getElementById('aggressive');
-    const scanning = document.getElementById('scanning');
-    const display = document.getElementById('display');
-    const doze = document.getElementById('doze');
-    const ultra = document.getElementById('ultra');
-    const screenSaver = document.getElementById('screenSaver');
-    const haptics = document.getElementById('haptics');
-    const darkMode = document.getElementById('darkMode');
-    const darkWallpaper = document.getElementById('darkWallpaper');
-    const refreshRate = document.getElementById('refreshRate');
-    const packageName = document.getElementById('packageName');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
-    let execFn = exec;
+    let execFn = null;
+
+    const profileInfo = {
+      balanced: {
+        title: 'Balanced',
+        affects: 'scanning reduction, moderate Doze, 120 Hz available',
+        safe: 'does not change AOD/tap/pickup, calls, SMS, Clock, IMS, modem, GMS, SystemUI or root'
+      },
+      idle: {
+        title: 'Idle saver',
+        affects: 'scanning, display idle, AOD/tap/pickup/screen-off UDFPS, Doze',
+        safe: 'does not stop calls, SMS, Clock, IMS, modem, GMS, SystemUI or root'
+      },
+      ultra: {
+        title: 'Ultra idle',
+        affects: 'scanning, display idle, Doze, app standby hints, screen saver, haptics, dark mode, 60 Hz',
+        safe: 'does not freeze apps directly and does not stop calls, SMS, Clock, IMS, modem, GMS, SystemUI or root'
+      },
+      night: {
+        title: 'Night profile',
+        affects: 'same safe aggressive direction as Ultra for overnight idle',
+        safe: 'keeps calls, SMS and Clock/alarm path protected; does not stop telephony, IMS, GMS, SystemUI or root'
+      },
+      screen: {
+        title: 'Screen-on saver',
+        affects: '60 Hz, dark mode, haptics off, screen-on discovery reductions',
+        safe: 'does not force display idle/Doze and does not stop calls, SMS, Clock, Maps, IMS, GMS or SystemUI'
+      }
+    };
+
+    const ids = [
+      'enabled', 'profile', 'nightSchedule', 'nightStart', 'nightEnd', 'aggressive', 'scanning',
+      'display', 'doze', 'ultra', 'screenSaver', 'haptics', 'darkMode', 'darkWallpaper',
+      'refreshRate', 'packageName'
+    ];
+    const el = Object.fromEntries(ids.map((id) => [id, document.getElementById(id)]));
 
     function show(text) {
       output.textContent = text || '';
     }
 
+    function explainProfile(name) {
+      const info = profileInfo[name] || profileInfo.idle;
+      document.getElementById('profileExplain').innerHTML =
+        `<strong>${info.title}</strong><span>Affects: ${info.affects}.</span><span>Safe areas: ${info.safe}.</span>`;
+    }
+
     async function run(args) {
-      if (!execFn) {
-        throw new Error('KernelSU API unavailable');
-      }
-      const command = `sh ${tune} ${args}`;
-      const result = await execFn(command);
+      if (!execFn) throw new Error('KernelSU API unavailable');
+      const result = await execFn(`sh ${tune} ${args}`);
       return result.stdout || result.stderr || '';
     }
 
     async function refresh() {
-      try {
-        const text = await run('status');
-        show(text);
-        enabled.checked = /Enabled:\s*1/.test(text);
-        const profileMatch = text.match(/Profile:\s*(balanced|idle|ultra|night|screen)/);
-        if (profileMatch) profile.value = profileMatch[1];
-        nightSchedule.checked = /Night schedule:\s*1/.test(text);
-        const nightMatch = text.match(/Night window:\s*([0-2][0-9]:[0-5][0-9])-([0-2][0-9]:[0-5][0-9])/);
-        if (nightMatch) {
-          nightStart.value = nightMatch[1];
-          nightEnd.value = nightMatch[2];
-        }
-        aggressive.checked = /Aggressive:\s*1/.test(text);
-        scanning.checked = /Scanning tweaks:\s*1/.test(text);
-        display.checked = /Display idle tweaks:\s*1/.test(text);
-        doze.checked = /Doze tuning:\s*1/.test(text);
-        ultra.checked = /Ultra idle:\s*1/.test(text);
-        screenSaver.checked = /Screen-on saver:\s*1/.test(text);
-        haptics.checked = /Haptics off:\s*1/.test(text);
-        darkMode.checked = /Dark mode:\s*1/.test(text);
-        darkWallpaper.checked = /Dark wallpaper:\s*1/.test(text);
-        const rate = text.match(/Screen-on refresh rate:\s*(60|90|120)/);
-        if (rate) refreshRate.value = rate[1];
-      } catch (error) {
-        show(String(error.message || error));
+      const text = await run('status');
+      show(text);
+      el.enabled.checked = /Enabled:\s*1/.test(text);
+      const profileMatch = text.match(/Profile:\s*(balanced|idle|ultra|night|screen)/);
+      if (profileMatch) el.profile.value = profileMatch[1];
+      explainProfile(el.profile.value);
+      el.nightSchedule.checked = /Night schedule:\s*1/.test(text);
+      const nightMatch = text.match(/Night window:\s*([0-2][0-9]:[0-5][0-9])-([0-2][0-9]:[0-5][0-9])/);
+      if (nightMatch) {
+        el.nightStart.value = nightMatch[1];
+        el.nightEnd.value = nightMatch[2];
       }
+      el.aggressive.checked = /Aggressive:\s*1/.test(text);
+      el.scanning.checked = /Scanning tweaks:\s*1/.test(text);
+      el.display.checked = /Display idle tweaks:\s*1/.test(text);
+      el.doze.checked = /Doze tuning:\s*1/.test(text);
+      el.ultra.checked = /Ultra idle:\s*1/.test(text);
+      el.screenSaver.checked = /Screen-on saver:\s*1/.test(text);
+      el.haptics.checked = /Haptics off:\s*1/.test(text);
+      el.darkMode.checked = /Dark mode:\s*1/.test(text);
+      el.darkWallpaper.checked = /Dark wallpaper:\s*1/.test(text);
+      const rate = text.match(/Screen-on refresh rate:\s*(60|90|120)/);
+      if (rate) el.refreshRate.value = rate[1];
     }
 
     function validPackageName(pkg) {
@@ -494,272 +475,121 @@
         !pkg.endsWith('.');
     }
 
-    enabled.addEventListener('change', async () => {
-      show(await run(`set-enabled ${enabled.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    profile.addEventListener('change', async () => {
-      show(await run(`set-profile ${profile.value}`));
-      await refresh();
-    });
-
-    nightSchedule.addEventListener('change', async () => {
-      show(await run(`set-night-schedule ${nightSchedule.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    aggressive.addEventListener('change', async () => {
-      show(await run(`set-aggressive ${aggressive.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    scanning.addEventListener('change', async () => {
-      show(await run(`set-scanning ${scanning.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    display.addEventListener('change', async () => {
-      show(await run(`set-display ${display.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    doze.addEventListener('change', async () => {
-      show(await run(`set-doze ${doze.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    ultra.addEventListener('change', async () => {
-      show(await run(`set-ultra ${ultra.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    screenSaver.addEventListener('change', async () => {
-      show(await run(`set-screen-saver ${screenSaver.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    haptics.addEventListener('change', async () => {
-      show(await run(`set-haptics ${haptics.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    darkMode.addEventListener('change', async () => {
-      show(await run(`set-dark-mode ${darkMode.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    darkWallpaper.addEventListener('change', async () => {
-      show(await run(`set-dark-wallpaper ${darkWallpaper.checked ? 1 : 0}`));
-      await refresh();
-    });
-
-    refreshRate.addEventListener('change', async () => {
-      show(await run(`set-refresh-rate ${refreshRate.value}`));
-      await refresh();
-    });
-
-    document.getElementById('apply').addEventListener('click', async () => {
-      show(await run('apply'));
-      await refresh();
-    });
-
-    document.getElementById('mySetup').addEventListener('click', async () => {
-      show(await run('my-setup'));
-      await refresh();
-    });
-
-    document.getElementById('safetyCheck').addEventListener('click', async () => {
-      show(await run('safety-check'));
-    });
-
-    document.getElementById('overnightStart').addEventListener('click', async () => {
-      show(await run('overnight-start'));
-    });
-
-    document.getElementById('overnightReport').addEventListener('click', async () => {
-      show(await run('overnight-report'));
-    });
-
-    document.getElementById('analyzeAll').addEventListener('click', async () => {
-      show(await run('analyze-all'));
-    });
-
-    document.getElementById('wakelockReport').addEventListener('click', async () => {
-      show(await run('wakelock-report'));
-    });
-
-    document.getElementById('alarmReport').addEventListener('click', async () => {
-      show(await run('alarm-report'));
-    });
-
-    document.getElementById('jobsReport').addEventListener('click', async () => {
-      show(await run('jobs-report'));
-    });
-
-    document.getElementById('locationReport').addEventListener('click', async () => {
-      show(await run('location-report'));
-    });
-
-    document.getElementById('sensorReport').addEventListener('click', async () => {
-      show(await run('sensor-report'));
-    });
-
-    document.getElementById('networkReport').addEventListener('click', async () => {
-      show(await run('network-report'));
-    });
-
-    document.getElementById('newAppsReport').addEventListener('click', async () => {
-      show(await run('new-apps-report'));
-    });
-
-    document.getElementById('snapshotApps').addEventListener('click', async () => {
-      show(await run('snapshot-apps'));
-    });
-
-    document.getElementById('applyProfile').addEventListener('click', async () => {
-      show(await run(`apply-profile ${profile.value}`));
-      await refresh();
-    });
-
-    document.getElementById('saveNightWindow').addEventListener('click', async () => {
-      if (!nightStart.value || !nightEnd.value) {
-        show('Select both night start and end times.');
-        return;
-      }
-      show(await run(`set-night-window ${nightStart.value} ${nightEnd.value}`));
-      await refresh();
-    });
-
-    document.getElementById('diagnose').addEventListener('click', async () => {
-      show(await run('diagnose'));
-    });
-
-    document.getElementById('idleScore').addEventListener('click', async () => {
-      show(await run('idle-score'));
-    });
-
-    document.getElementById('exportBackup').addEventListener('click', async () => {
-      show(await run('export-backup'));
-    });
-
-    document.getElementById('exportRestorePack').addEventListener('click', async () => {
-      show(await run('export-restore-pack'));
-    });
-
-    document.getElementById('pause30').addEventListener('click', async () => {
-      show(await run('pause-minutes 30'));
-      await refresh();
-    });
-
-    document.getElementById('resume').addEventListener('click', async () => {
-      show(await run('resume'));
-      await refresh();
-    });
-
-    document.getElementById('restore').addEventListener('click', async () => {
-      show(await run('restore'));
-    });
-
-    document.getElementById('viewLogs').addEventListener('click', async () => {
-      show(await run('logs'));
-    });
-
-    document.getElementById('clearLogs').addEventListener('click', async () => {
-      show(await run('clear-logs'));
-    });
-
-    document.getElementById('listPackages').addEventListener('click', async () => {
-      show(await run('protected-list'));
-    });
-
-    document.getElementById('addPackage').addEventListener('click', async () => {
-      const pkg = packageName.value.trim();
-      if (!pkg) {
-        show('Enter a package name first.');
-        return;
-      }
-      if (!validPackageName(pkg)) {
-        show('Invalid package name.');
-        return;
-      }
-      show(await run(`protected-add ${pkg}`));
-      packageName.value = '';
-      await refresh();
-    });
-
-    document.getElementById('removePackage').addEventListener('click', async () => {
-      const pkg = packageName.value.trim();
-      if (!pkg) {
-        show('Enter a package name first.');
-        return;
-      }
-      if (!validPackageName(pkg)) {
-        show('Invalid package name.');
-        return;
-      }
-      show(await run(`protected-remove ${pkg}`));
-      packageName.value = '';
-      await refresh();
-    });
-
-    document.getElementById('resetPackages').addEventListener('click', async () => {
-      show(await run('protected-reset'));
-      await refresh();
-    });
-
-    document.getElementById('exportThanox').addEventListener('click', async () => {
-      show(await run('export-thanox'));
-    });
-
-    document.getElementById('exportThanoxRules').addEventListener('click', async () => {
-      show(await run('export-thanox-rules'));
-    });
-
-    document.getElementById('exportThanoxTemplates').addEventListener('click', async () => {
-      show(await run('export-thanox-templates'));
-    });
-
-    document.getElementById('exportHail').addEventListener('click', async () => {
-      show(await run('export-hail'));
-    });
-
-    document.getElementById('exportHailLists').addEventListener('click', async () => {
-      show(await run('export-hail-lists'));
-    });
-
-    document.getElementById('myTemplate').addEventListener('click', async () => {
-      show(await run('export-my-template'));
-    });
-
-    document.getElementById('whitelistDefaults').addEventListener('click', async () => {
-      show(await run('set-my-whitelist-defaults'));
-      await refresh();
-    });
-
-    document.getElementById('quickActions').addEventListener('click', async () => {
-      show(await run('export-quick-actions'));
-    });
-
-    document.getElementById('notificationReport').addEventListener('click', async () => {
-      show(await run('notification-report'));
-    });
-
-    document.getElementById('exportPolicy').addEventListener('click', async () => {
-      show(await run('export-app-policy'));
-    });
-
-    document.querySelectorAll('[data-restore-category]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        show(await run(`restore-category ${button.dataset.restoreCategory}`));
+    async function bindButton(id, command, shouldRefresh = false) {
+      document.getElementById(id).addEventListener('click', async () => {
+        show(await run(typeof command === 'function' ? command() : command));
+        if (shouldRefresh) await refresh();
       });
-    });
-    try {
-      await refresh();
-    } catch (error) {
-      apiError.style.display = 'block';
-      show('KernelSU WebUI API unavailable. Open this module from KernelSU Next / KernelSU Manager module WebUI, not from a browser or file manager.');
     }
+
+    async function main() {
+      try {
+        const api = await import('kernelsu');
+        execFn = api.exec;
+      } catch (error) {
+        apiError.style.display = 'block';
+        explainProfile('idle');
+        show('KernelSU WebUI API unavailable. Open this module from KernelSU Next / KernelSU Manager module WebUI, not from a browser or file manager.');
+        return;
+      }
+
+      el.profile.addEventListener('change', async () => {
+        explainProfile(el.profile.value);
+        show(await run(`set-profile ${el.profile.value}`));
+        await refresh();
+      });
+
+      el.enabled.addEventListener('change', async () => { show(await run(`set-enabled ${el.enabled.checked ? 1 : 0}`)); await refresh(); });
+      el.nightSchedule.addEventListener('change', async () => { show(await run(`set-night-schedule ${el.nightSchedule.checked ? 1 : 0}`)); await refresh(); });
+      el.aggressive.addEventListener('change', async () => { show(await run(`set-aggressive ${el.aggressive.checked ? 1 : 0}`)); await refresh(); });
+      el.scanning.addEventListener('change', async () => { show(await run(`set-scanning ${el.scanning.checked ? 1 : 0}`)); await refresh(); });
+      el.display.addEventListener('change', async () => { show(await run(`set-display ${el.display.checked ? 1 : 0}`)); await refresh(); });
+      el.doze.addEventListener('change', async () => { show(await run(`set-doze ${el.doze.checked ? 1 : 0}`)); await refresh(); });
+      el.ultra.addEventListener('change', async () => { show(await run(`set-ultra ${el.ultra.checked ? 1 : 0}`)); await refresh(); });
+      el.screenSaver.addEventListener('change', async () => { show(await run(`set-screen-saver ${el.screenSaver.checked ? 1 : 0}`)); await refresh(); });
+      el.haptics.addEventListener('change', async () => { show(await run(`set-haptics ${el.haptics.checked ? 1 : 0}`)); await refresh(); });
+      el.darkMode.addEventListener('change', async () => { show(await run(`set-dark-mode ${el.darkMode.checked ? 1 : 0}`)); await refresh(); });
+      el.darkWallpaper.addEventListener('change', async () => { show(await run(`set-dark-wallpaper ${el.darkWallpaper.checked ? 1 : 0}`)); await refresh(); });
+      el.refreshRate.addEventListener('change', async () => { show(await run(`set-refresh-rate ${el.refreshRate.value}`)); await refresh(); });
+
+      bindButton('mySetup', 'my-setup', true);
+      bindButton('apply', 'apply', true);
+      bindButton('safetyCheck', 'safety-check');
+      bindButton('exportMyTemplate', 'export-my-template');
+      bindButton('applyProfile', () => `apply-profile ${el.profile.value}`, true);
+      bindButton('idleScore', 'idle-score');
+      bindButton('overnightStart', 'overnight-start');
+      bindButton('overnightReport', 'overnight-report');
+      bindButton('analyzeAll', 'analyze-all');
+      bindButton('diagnose', 'diagnose');
+      bindButton('wakelockReport', 'wakelock-report');
+      bindButton('alarmReport', 'alarm-report');
+      bindButton('jobsReport', 'jobs-report');
+      bindButton('locationReport', 'location-report');
+      bindButton('sensorReport', 'sensor-report');
+      bindButton('networkReport', 'network-report');
+      bindButton('listPackages', 'protected-list');
+      bindButton('whitelistDefaults', 'set-my-whitelist-defaults', true);
+      bindButton('exportHailLists', 'export-hail-lists');
+      bindButton('exportThanoxTemplates', 'export-thanox-templates');
+      bindButton('notificationReport', 'notification-report');
+      bindButton('newAppsReport', 'new-apps-report');
+      bindButton('pause30', 'pause-minutes 30', true);
+      bindButton('resume', 'resume', true);
+      bindButton('exportRestorePack', 'export-restore-pack');
+      bindButton('exportBackup', 'export-backup');
+      bindButton('restore', 'restore');
+      bindButton('viewLogs', 'logs');
+      bindButton('clearLogs', 'clear-logs');
+      bindButton('snapshotApps', 'snapshot-apps');
+
+      document.getElementById('saveNightWindow').addEventListener('click', async () => {
+        if (!el.nightStart.value || !el.nightEnd.value) {
+          show('Select both night start and end times.');
+          return;
+        }
+        show(await run(`set-night-window ${el.nightStart.value} ${el.nightEnd.value}`));
+        await refresh();
+      });
+
+      document.getElementById('addPackage').addEventListener('click', async () => {
+        const pkg = el.packageName.value.trim();
+        if (!validPackageName(pkg)) {
+          show('Enter a valid package name first.');
+          return;
+        }
+        show(await run(`protected-add ${pkg}`));
+        el.packageName.value = '';
+        await refresh();
+      });
+
+      document.getElementById('removePackage').addEventListener('click', async () => {
+        const pkg = el.packageName.value.trim();
+        if (!validPackageName(pkg)) {
+          show('Enter a valid package name first.');
+          return;
+        }
+        show(await run(`protected-remove ${pkg}`));
+        el.packageName.value = '';
+        await refresh();
+      });
+
+      document.querySelectorAll('[data-restore-category]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          show(await run(`restore-category ${button.dataset.restoreCategory}`));
+        });
+      });
+
+      document.getElementById('resetAll').addEventListener('click', async () => {
+        if (!confirm('Reset all module settings and generated files before uninstall?')) return;
+        show(await run('reset-all'));
+        await refresh();
+      });
+
+      await refresh();
+    }
+
+    main();
   </script>
 </body>
 </html>
