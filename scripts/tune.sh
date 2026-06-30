@@ -1,26 +1,14 @@
 #!/system/bin/sh
-MODDIR=${0%/*}/..
-CFG=$MODDIR/config.conf
-LOG=/data/local/tmp/peridot_idle_drain.log
-BASE=/data/local/tmp/peridot_overnight_base
-OUT=/sdcard/Download
-P="com.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.android.systemui,me.weishu.kernelsu,com.topjohnwu.magisk,org.lsposed.manager,org.telegram.messenger"
-log(){ echo "$(date '+%F %T') $*" >>$LOG; }
-get(){ grep "^$1=" "$CFG" 2>/dev/null|tail -n1|cut -d= -f2-; }
-setv(){ grep -q "^$1=" "$CFG"&&sed -i "s|^$1=.*|$1=$2|" "$CFG"||echo "$1=$2">>"$CFG"; }
-sp(){ settings put "$1" "$2" "$3" 2>/dev/null; }
-dc(){ device_config put "$1" "$2" "$3" 2>/dev/null; }
-safe(){ sp global wifi_scan_always_enabled 0;sp global ble_scan_always_enabled 0;sp global adaptive_connectivity_enabled 0;sp secure nearby_scanning_enabled 0;sp secure doze_enabled 0;sp secure doze_always_on 0;sp secure wake_gesture_enabled 0;sp secure double_tap_to_wake 0;sp system haptic_feedback_enabled 0;sp system vibrate_when_ringing 0;sp secure ui_night_mode 2;sp system peak_refresh_rate "${1:-60}";sp system min_refresh_rate 60;dc device_idle inactive_to 60000;dc device_idle sensing_to 0;dc device_idle locating_to 0;dc device_idle motion_inactive_to 60000;dc device_idle idle_after_inactive_to 120000; }
-apply(){ [ "$(get ENABLED)" = 0 ]&&{ log disabled;return; }; prof=$(get PROFILE);[ -z "$prof" ]&&prof=idle;case "$prof" in balanced)safe 90;;screen)safe 60;;*)safe 60;;esac;log "applied $prof"; }
-status(){ echo "Peridot Idle Drain v1.7.6";echo "author: Mohithash";echo "profile: $(get PROFILE)";echo "enabled: $(get ENABLED)";echo "repo: https://github.com/Mohithash/peridot-idle-drain-ksu-next"; }
-plist(){ v=$(get PROTECTED_PACKAGES);[ -z "$v" ]&&v=$P;echo "$v"|tr ',' '\n'; }
-padd(){ v=$(get PROTECTED_PACKAGES);[ -z "$v" ]&&v=$P;echo "$v"|tr ',' '\n'|grep -qx "$1"||setv PROTECTED_PACKAGES "$v,$1";plist; }
-prem(){ v=$(plist|grep -vx "$1"|paste -sd, -);setv PROTECTED_PACKAGES "$v";plist; }
-exports(){ mkdir -p "$OUT" 2>/dev/null; plist >$OUT/peridot_protected_packages.txt; { echo "Thanox/Hail template";echo "Protect these:";plist;echo;echo "All other user apps: freeze/restrict after screen off, block background start, disable noisy notifications.";echo "Maps/payment apps: unfreeze only when opened, freeze after exit.";echo "Telegram: keep private chats, mute groups/channels/bots in Telegram settings."; } >$OUT/peridot_my_template.txt; echo "Exported to $OUT/peridot_my_template.txt"; }
-safety(){ echo "Safety check";echo "No modem/IMS/telephony/GMS/SystemUI stop commands are used.";echo "Clock/alarm apps:";pm list packages|grep -E 'deskclock|clock' 2>/dev/null;echo "Telephony packages:";pm list packages|grep -E 'phone|telecom|telephony|ims' 2>/dev/null|head; }
-analyze(){ mkdir -p "$OUT" 2>/dev/null; f=$OUT/peridot_analysis.txt; { date;status;echo;echo "Device idle:";dumpsys deviceidle 2>/dev/null|head -80;echo;echo "Wakeup sources:";cat /sys/kernel/debug/wakeup_sources 2>/dev/null|head -40;echo;echo "Alarms:";dumpsys alarm 2>/dev/null|grep -Ei 'wakeup|alarm|pending'|head -60;echo;echo "Jobs:";dumpsys jobscheduler 2>/dev/null|grep -Ei 'JOB|u0a|package'|head -80; } >$f; echo "Wrote $f"; }
-ostart(){ date +%s >$BASE.time; dumpsys battery|grep level|tr -dc 0-9 >$BASE.bat; log overnight-start;echo started; }
-oreport(){ now=$(date +%s); then=$(cat $BASE.time 2>/dev/null); bl=$(cat $BASE.bat 2>/dev/null); cl=$(dumpsys battery|grep level|tr -dc 0-9); [ -z "$then" ]&&{ echo "Run overnight-start first";return; }; hrs=$(( (now-then)/3600 ));[ "$hrs" -lt 1 ]&&hrs=1; drop=$((bl-cl)); rate=$((drop/hrs)); f=$OUT/peridot_overnight_report.txt; mkdir -p "$OUT"; { echo "hours=$hrs";echo "drop=$drop%";echo "approx_rate=$rate%/hr";echo "target=<1%/hr";analyze; } >$f; echo "Wrote $f"; }
-reset(){ settings delete global wifi_scan_always_enabled 2>/dev/null;settings delete global ble_scan_always_enabled 2>/dev/null;settings delete global adaptive_connectivity_enabled 2>/dev/null;settings delete secure nearby_scanning_enabled 2>/dev/null;settings delete secure doze_enabled 2>/dev/null;settings delete secure doze_always_on 2>/dev/null;settings delete secure wake_gesture_enabled 2>/dev/null;settings delete secure double_tap_to_wake 2>/dev/null;settings delete system haptic_feedback_enabled 2>/dev/null;settings delete system vibrate_when_ringing 2>/dev/null;settings delete secure ui_night_mode 2>/dev/null;settings delete system peak_refresh_rate 2>/dev/null;settings delete system min_refresh_rate 2>/dev/null;log reset;echo reset; }
-cmd=$1;shift
-case "$cmd" in boot|apply)apply;;status|"")status;;my-setup)setv ENABLED 1;setv PROFILE ultra;setv PROTECTED_PACKAGES "$P";apply;exports;;set-profile)setv PROFILE "$1";apply;;apply-profile)setv PROFILE "$1";apply;;safety-check)safety;;overnight-start)ostart;;overnight-report)oreport;;analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report)analyze;;reset-all|restore)reset;;logs)tail -n 80 $LOG 2>/dev/null;;clear-logs)>$LOG;;export-my-template|export-thanox-templates|export-hail-lists|export-app-policy|export-quick-actions|notification-report)exports;;protected-list)plist;;protected-add)padd "$1";;protected-remove)prem "$1";;protected-reset)setv PROTECTED_PACKAGES "$P";plist;;*)echo "Commands: status apply my-setup set-profile safety-check overnight-start overnight-report analyze-all reset-all logs clear-logs export-my-template protected-list/add/remove/reset";;esac
+M=${0%/*}/..
+L=/data/local/tmp/peridot_idle.log
+B=/data/local/tmp/peridot_idle.bak
+bk(){ [ -f $B ]||:>$B; grep -q "^$1|$2|" $B 2>/dev/null||echo "$1|$2|$(settings get $1 $2 2>/dev/null)" >>$B; }
+put(){ bk $1 $2; settings put $1 $2 $3 >/dev/null 2>&1; echo "$1.$2=$3" >>$L; }
+apply(){
+put global wifi_scan_always_enabled 0;put global ble_scan_always_enabled 0;put global wifi_wakeup_enabled 0;put global adaptive_connectivity_enabled 0;put global mobile_data_always_on 0
+put secure nearby_scanning_enabled 0;put secure doze_enabled 0;put secure doze_always_on 0;put secure doze_pulse_on_pick_up 0;put secure doze_pulse_on_double_tap 0;put secure doze_pulse_on_tap 0;put secure ambient_display_enabled 0;put secure wake_gesture_enabled 0;put secure pickup_gesture_enabled 0
+put system haptic_feedback_enabled 0;put system peak_refresh_rate 60;put system min_refresh_rate 60
+cmd uimode night yes >/dev/null 2>&1;echo applied
+}
+reset(){ [ -f $B ]&&while IFS='|' read n k v;do [ "$v" = null ]&&settings delete $n $k||settings put $n $k "$v";done<$B;rm -f $L;echo reset; }
+case "$1" in status)echo "Peridot Idle v1.7.7 by Mohithash";;apply|my-setup|set-profile|apply-profile)apply;;safety-check)echo "Calls/SMS/Clock untouched. Test once.";;overnight-start)date > /data/local/tmp/peridot_start.txt;dumpsys battery|grep level >> /data/local/tmp/peridot_start.txt;;overnight-report)dumpsys battery|grep level;cat /data/local/tmp/peridot_start.txt 2>/dev/null;;analyze-all)cat /sys/kernel/debug/wakeup_sources 2>/dev/null|head -20;dumpsys alarm 2>/dev/null|head -40;;reset-all|restore)reset;;logs)cat $L 2>/dev/null;;clear-logs):>$L;;*)echo "status apply my-setup safety-check overnight-start overnight-report analyze-all reset-all logs";;esac

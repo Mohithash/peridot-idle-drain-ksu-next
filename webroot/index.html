@@ -1,27 +1,5 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Peridot Idle Drain</title><style>
-:root{color-scheme:dark light;--p:#9ccaff;--b:#111418;--c:#1b1f24;--t:#e4e8ee;--m:#aeb6c2}
-body{margin:0;background:var(--b);color:var(--t);font:15px system-ui,Roboto,Arial,sans-serif}main{max-width:760px;margin:auto;padding:18px}
-h1{font-size:24px;margin:8px 0 2px}.sub{color:var(--m);font-size:13px;margin-bottom:14px}.card{background:var(--c);border:1px solid #30363d;border-radius:18px;padding:14px;margin:12px 0}
-button,select{border:0;border-radius:999px;padding:11px 14px;margin:5px;background:#26384c;color:var(--t)}button.primary{background:var(--p);color:#06213b;font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px}.note{color:var(--m);font-size:13px;line-height:1.45}pre{white-space:pre-wrap;word-break:break-word;background:#080a0d;border-radius:12px;padding:12px;min-height:90px}
-</style></head><body><main>
-<h1>Peridot Idle Drain</h1><div class="sub">VoltageOS/peridot battery helper by Mohithash</div>
-<section class="card"><b>Quick setup</b><p class="note">Keeps calls, SMS, Clock, IMS, GMS, SystemUI and root untouched. Use Thanox/Hail for app freezing.</p>
-<div class="grid"><button class="primary" data-cmd="my-setup">My setup</button><button data-cmd="apply">Apply</button><button data-cmd="safety-check">Safety check</button><button data-cmd="analyze-all">Analyze</button></div></section>
-<section class="card"><b>Profile</b><p class="note" id="info">Ultra is best for your use: 60Hz, dark mode, haptics off, no idle scans. Calls and Clock stay safe.</p>
-<select id="p"><option>balanced</option><option>idle</option><option selected>ultra</option><option>night</option><option>screen</option></select>
-<button id="setProfile">Set profile</button></section>
-<section class="card"><b>Exports and cleanup</b><div class="grid"><button data-cmd="export-my-template">My template</button><button data-cmd="export-thanox-templates">Thanox</button><button data-cmd="export-hail-lists">Hail</button><button data-cmd="notification-report">Notifications</button><button data-cmd="overnight-start">Overnight start</button><button data-cmd="overnight-report">Overnight report</button><button data-cmd="reset-all">Reset all</button></div></section>
-<section class="card"><b>Output</b><pre id="out">If buttons do nothing, run commands manually:
-su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'</pre></section>
-</main><script>
-const path="/data/adb/modules/peridot_idle_drain/scripts/tune.sh",out=document.getElementById("out"),sel=document.getElementById("p"),inf=document.getElementById("info");
-function api(){return window.ksu||window.KernelSU}
-function kexec(cmd){return new Promise((ok,fail)=>{let k=api(),cb="cb"+Date.now()+Math.floor(Math.random()*9999);if(!k||!k.exec)return fail("KernelSU WebUI API unavailable");window[cb]=(errno,stdout,stderr)=>{delete window[cb];ok({errno,stdout,stderr})};try{k.exec(cmd,"{}",cb)}catch(e){delete window[cb];fail(e)}})}
-async function run(c){out.textContent="$ "+c+"\n";try{let r=await kexec("sh "+path+" "+c);out.textContent+=(r.stdout||"")+(r.stderr?("\n"+r.stderr):"")+(r.errno?("\nexit: "+r.errno):"")}catch(e){out.textContent+="WebUI API error: "+e+"\nManual:\nsu -c 'sh "+path+" "+c+"'"}}
-function profileInfo(){let p=sel.value,txt={balanced:"Light changes. Good daily use. Calls/SMS/Clock untouched.",idle:"Idle saver. Disables scans/AOD style features. Calls/SMS/Clock untouched.",ultra:"Most aggressive safe profile. 60Hz, dark, no haptics/scans. Calls/SMS/Clock/IMS/GMS untouched.",night:"Night mode for sleep. Use overnight report in morning. Alarm and calls untouched.",screen:"Screen-on saver: refresh/haptics/dark mode. Apps handled by Thanox/Hail."};inf.textContent=txt[p]}
-document.querySelectorAll("[data-cmd]").forEach(b=>b.addEventListener("click",()=>run(b.dataset.cmd)));
-document.getElementById("setProfile").addEventListener("click",()=>run("set-profile "+sel.value));
-sel.addEventListener("change",profileInfo);profileInfo();
+<!doctype html><html><head><meta name=viewport content="width=device-width,initial-scale=1"><style>body{font:16px sans-serif;background:#101418;color:#e8eef5;margin:0}main{padding:18px;max-width:560px;margin:auto}.c{background:#1b222b;border-radius:18px;padding:16px;margin:12px 0}button{border:0;border-radius:22px;padding:12px;margin:5px;background:#9ccaff;color:#071d33;font-weight:700}pre{white-space:pre-wrap;background:#070a0d;border-radius:12px;padding:12px}</style></head><body><main><h2>Peridot Idle</h2><p>VoltageOS/peridot battery helper by Mohithash.</p><div class=c><button data-c=my-setup>My setup</button><button data-c=apply>Apply</button><button data-c=safety-check>Safety</button><button data-c=overnight-start>Start night</button><button data-c=overnight-report>Report</button><button data-c=analyze-all>Analyze</button><button data-c=reset-all>Reset</button></div><pre id=o>Ready</pre></main><script>
+let p="/data/adb/modules/peridot_idle_drain/scripts/tune.sh",o=document.getElementById("o");
+function ex(c){o.textContent="$ "+c+"\n";let k=window.ksu||window.KernelSU,cb="c"+Date.now();if(!k||!k.exec){o.textContent+="No WebUI API. Manual:\nsu -c 'sh "+p+" "+c+"'";return}window[cb]=(e,s,r)=>{delete window[cb];o.textContent+=(s||"")+(r||"")+(e?("\nexit "+e):"")};try{k.exec("sh "+p+" "+c,"{}",cb)}catch(e){o.textContent+="Error "+e}}
+document.querySelectorAll("button").forEach(b=>b.onclick=()=>ex(b.dataset.c));
 </script></body></html>
