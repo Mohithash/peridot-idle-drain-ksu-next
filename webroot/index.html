@@ -348,8 +348,18 @@
         <button id="safetyCheck">Safety Check</button>
         <button id="overnightStart">Overnight Start</button>
         <button id="overnightReport">Overnight Report</button>
+        <button class="primary" id="analyzeAll">Analyze All</button>
+        <button id="wakelockReport">Wakelocks</button>
+        <button id="alarmReport">Alarms</button>
+        <button id="jobsReport">Jobs</button>
+        <button id="locationReport">Location</button>
+        <button id="sensorReport">Sensors</button>
+        <button id="networkReport">Network</button>
+        <button id="newAppsReport">New Apps</button>
+        <button id="snapshotApps">Snapshot Apps</button>
         <button id="diagnose">Diagnose</button>
         <button id="idleScore">Idle score</button>
+        <button id="exportRestorePack">Export Restore Pack</button>
         <button id="exportBackup">Export backup</button>
         <button id="pause30">Pause 30m</button>
         <button id="resume">Resume</button>
@@ -375,9 +385,26 @@
         <button id="resetPackages">Reset defaults</button>
         <button id="exportThanox">Export Thanox helper</button>
         <button id="exportThanoxRules">Export Thanox rules</button>
+        <button id="exportThanoxTemplates">Thanox templates</button>
         <button id="exportHail">Export Hail</button>
+        <button id="exportHailLists">Hail lists</button>
         <button id="notificationReport">Notification report</button>
         <button id="exportPolicy">Export app policy</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="label">
+        <strong>Restore categories</strong>
+        <span>Restore only one group from the module backup, or restore all backed-up settings.</span>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button data-restore-category="scanning">Restore scanning</button>
+        <button data-restore-category="display">Restore display</button>
+        <button data-restore-category="doze">Restore doze</button>
+        <button data-restore-category="screen">Restore screen</button>
+        <button data-restore-category="haptics">Restore haptics</button>
+        <button data-restore-category="dark">Restore dark</button>
       </div>
     </section>
   </main>
@@ -549,6 +576,42 @@
       show(await run('overnight-report'));
     });
 
+    document.getElementById('analyzeAll').addEventListener('click', async () => {
+      show(await run('analyze-all'));
+    });
+
+    document.getElementById('wakelockReport').addEventListener('click', async () => {
+      show(await run('wakelock-report'));
+    });
+
+    document.getElementById('alarmReport').addEventListener('click', async () => {
+      show(await run('alarm-report'));
+    });
+
+    document.getElementById('jobsReport').addEventListener('click', async () => {
+      show(await run('jobs-report'));
+    });
+
+    document.getElementById('locationReport').addEventListener('click', async () => {
+      show(await run('location-report'));
+    });
+
+    document.getElementById('sensorReport').addEventListener('click', async () => {
+      show(await run('sensor-report'));
+    });
+
+    document.getElementById('networkReport').addEventListener('click', async () => {
+      show(await run('network-report'));
+    });
+
+    document.getElementById('newAppsReport').addEventListener('click', async () => {
+      show(await run('new-apps-report'));
+    });
+
+    document.getElementById('snapshotApps').addEventListener('click', async () => {
+      show(await run('snapshot-apps'));
+    });
+
     document.getElementById('applyProfile').addEventListener('click', async () => {
       show(await run(`apply-profile ${profile.value}`));
       await refresh();
@@ -573,6 +636,10 @@
 
     document.getElementById('exportBackup').addEventListener('click', async () => {
       show(await run('export-backup'));
+    });
+
+    document.getElementById('exportRestorePack').addEventListener('click', async () => {
+      show(await run('export-restore-pack'));
     });
 
     document.getElementById('pause30').addEventListener('click', async () => {
@@ -644,8 +711,16 @@
       show(await run('export-thanox-rules'));
     });
 
+    document.getElementById('exportThanoxTemplates').addEventListener('click', async () => {
+      show(await run('export-thanox-templates'));
+    });
+
     document.getElementById('exportHail').addEventListener('click', async () => {
       show(await run('export-hail'));
+    });
+
+    document.getElementById('exportHailLists').addEventListener('click', async () => {
+      show(await run('export-hail-lists'));
     });
 
     document.getElementById('notificationReport').addEventListener('click', async () => {
@@ -654,6 +729,12 @@
 
     document.getElementById('exportPolicy').addEventListener('click', async () => {
       show(await run('export-app-policy'));
+    });
+
+    document.querySelectorAll('[data-restore-category]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        show(await run(`restore-category ${button.dataset.restoreCategory}`));
+      });
     });
 
     await loadApi();

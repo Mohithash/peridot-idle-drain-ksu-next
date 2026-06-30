@@ -216,9 +216,11 @@ Android/KernelSU cannot reliably allow only personal messages while globally mut
 - mute bots/other chats manually or through Telegram folders/notification exceptions
 - keep Telegram whitelisted only if instant personal messages matter
 
-## v1.5.0 Ultimate Workflow
+## v1.6.0 All-in-One Analyzer Workflow
 
-Version 1.5.0 adds the analyzer and export pack for a stricter setup where calls and Clock/alarm stay safe, while Thanox/Hail manually handle non-whitelist apps.
+Version 1.6.0 is the final safe generic feature pass for Xiaomi peridot running VoltageOS. It keeps the module in the safe lane: KernelSU applies reversible system settings and generates reports, while Thanox/Hail remain responsible for manual app restriction.
+
+After this release, more improvement needs your real overnight reports rather than more generic tweaks. The module can now tell you whether drain looks more like modem/radio, Wi-Fi/CNSS, alarms/apps, jobs, location, sensors, background network, or notification/app spam.
 
 Recommended flow:
 
@@ -226,20 +228,38 @@ Recommended flow:
 2. Run **My Setup** from WebUI or shell.
 3. Open the exported Hail candidate list and manually select apps you want Hail to freeze.
 4. Open the exported Thanox rules and manually recreate the rules in Thanox Pro.
-5. Before sleep, run `overnight-start`.
-6. After waking, run `overnight-report`.
-7. Run `safety-check` after changing profiles or protected packages.
+5. Run `safety-check` after changing profiles or protected packages.
+6. Before sleep, run `overnight-start`.
+7. After waking, run `overnight-report`.
+8. Run `analyze-all` if drain is still above your target.
 
 My Setup enables profile `ultra`, night schedule, aggressive mode, scanning/display/Doze tuning, Ultra Idle, screen-on saver, haptics off, dark mode, best-effort dark wallpaper, 60 Hz refresh cap, and all helper exports.
 
-My Setup does not freeze, disable, suspend, force-stop, or notification-block packages. Hail and Thanox remain manual because package freezing is personal and can break alerts if applied blindly.
+My Setup does not freeze, disable, suspend, force-stop, block wakelocks, or notification-block packages. Hail and Thanox remain manual because package freezing is personal and can break alerts if applied blindly.
 
-New reports and exports:
+All-in-one analyzer commands:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh analyze-all'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh wakelock-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh alarm-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh jobs-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh location-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh sensor-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh network-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh new-apps-report'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh snapshot-apps'
+```
+
+Analyzer outputs:
 
 ```txt
 /data/local/tmp/peridot_safety_check.txt
 /data/local/tmp/peridot_idle_baseline.txt
 /data/local/tmp/peridot_overnight_report.txt
+/data/local/tmp/peridot_full_analysis.txt
+/sdcard/Download/peridot_full_analysis.txt
+/data/local/tmp/peridot_installed_apps_snapshot.txt
 /data/local/tmp/peridot_hail_freeze_candidates.txt
 /sdcard/Download/peridot_hail_freeze_candidates.txt
 /data/local/tmp/peridot_hail_protected_packages.txt
@@ -248,7 +268,31 @@ New reports and exports:
 /sdcard/Download/peridot_thanox_rules.txt
 /data/local/tmp/peridot_notification_review.txt
 /sdcard/Download/peridot_notification_review.txt
+/data/local/tmp/peridot_idle_restore_pack.txt
+/sdcard/Download/peridot_idle_restore_pack.txt
 ```
+
+Extra exports:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-thanox-templates'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-hail-lists'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-restore-pack'
+```
+
+Category restore:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category scanning'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category display'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category doze'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category screen'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category haptics'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category dark'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category all'
+```
+
+The reports are heuristic and intentionally cautious. They classify likely causes but do not block kernel wakelocks or make irreversible changes.
 
 Telegram personal-only limitation remains in-app only. Keep Telegram whitelisted if you need personal messages, then configure Telegram itself: Private Chats on, Groups off, Channels off, and mute bots/other chats manually.
 
@@ -275,7 +319,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.5.0.zip
+dist/peridot-idle-drain-ksu-next-v1.6.0.zip
 ```
 
 Steps:
@@ -309,11 +353,18 @@ The WebUI provides:
 - Overnight Start
 - Overnight Report
 - Diagnose
+- Analyze All
+- Wakelocks / Alarms / Jobs / Location / Sensors / Network reports
+- New Apps report and app snapshot
 - Idle score
 - Export module backup
+- Export restore pack
 - Export Hail candidates
+- Export Hail lists
 - Export Thanox rules
+- Export Thanox templates
 - Notification report
+- Restore by category
 - Restore backed-up settings
 - View logs
 - Clear logs

@@ -22,6 +22,11 @@ NOTIFICATION_FILE_TMP="/data/local/tmp/peridot_notification_review.txt"
 NOTIFICATION_FILE_DOWNLOAD="/sdcard/Download/peridot_notification_review.txt"
 MODULE_BACKUP_FILE_TMP="/data/local/tmp/peridot_idle_module_backup.txt"
 MODULE_BACKUP_FILE_DOWNLOAD="/sdcard/Download/peridot_idle_module_backup.txt"
+FULL_ANALYSIS_FILE_TMP="/data/local/tmp/peridot_full_analysis.txt"
+FULL_ANALYSIS_FILE_DOWNLOAD="/sdcard/Download/peridot_full_analysis.txt"
+INSTALLED_APPS_SNAPSHOT="/data/local/tmp/peridot_installed_apps_snapshot.txt"
+RESTORE_PACK_FILE_TMP="/data/local/tmp/peridot_idle_restore_pack.txt"
+RESTORE_PACK_FILE_DOWNLOAD="/sdcard/Download/peridot_idle_restore_pack.txt"
 BLACK_WALLPAPER="/data/local/tmp/peridot_black_wallpaper.png"
 DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.google.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.google.android.euicc,com.android.systemui,com.android.settings,com.android.permissioncontroller,me.weishu.kernelsu,com.rifsxd.ksunext,com.topjohnwu.magisk,org.lsposed.manager"
 RECOMMENDED_OPTIONAL_PACKAGES="com.whatsapp,org.telegram.messenger,org.thunderdog.challegram,com.google.android.apps.authenticator2,com.google.android.calendar"
@@ -1033,6 +1038,9 @@ cmd_status() {
     echo "Hail candidates: $HAIL_FILE_TMP"
     echo "Thanox rules: $THANOX_RULES_FILE_TMP"
     echo "Notification review: $NOTIFICATION_FILE_TMP"
+    echo "Full analysis: $FULL_ANALYSIS_FILE_TMP"
+    echo "App snapshot: $INSTALLED_APPS_SNAPSHOT"
+    echo "Restore pack: $RESTORE_PACK_FILE_TMP"
     [ -f "$BACKUP_FILE" ] && echo "Backup exists: yes" || echo "Backup exists: no"
 }
 
@@ -1539,6 +1547,505 @@ cmd_idle_score() {
     }
 }
 
+write_both_download_tmp() {
+    tmp_target="$1"
+    download_target="$2"
+    writer="$3"
+    wrote="$(write_dual_file "$tmp_target" "$download_target" "$writer")"
+    if [ -n "$wrote" ]; then
+        echo "$wrote"
+        return 0
+    fi
+    return 1
+}
+
+wakeup_sort_top() {
+    read_wakeup_sources | awk '
+        NR == 1 { next }
+        NF > 0 {
+            count = 0
+            if ($7 ~ /^[0-9]+$/) count = $7
+            else if ($2 ~ /^[0-9]+$/) count = $2
+            printf "%s %s\n", count, $1
+        }
+    ' 2>/dev/null | sort -nr | head -n "${1:-20}"
+}
+
+baseline_wakeup_count() {
+    name="$1"
+    awk -v n="$name" '
+        found == 1 && $1 == n {
+            if ($7 ~ /^[0-9]+$/) { print $7; exit }
+            if ($2 ~ /^[0-9]+$/) { print $2; exit }
+        }
+        /^\[wakeup_sources_top_30\]/ { found = 1; next }
+        /^\[/ && found == 1 { exit }
+    ' "$BASELINE_FILE" 2>/dev/null
+}
+
+cmd_wakelock_report() {
+    {
+        echo "Peridot Idle Drain - Wakelock Report"
+        date
+        echo
+        echo "This is read-only. It does not block or write wakelocks."
+        echo
+        if ! read_wakeup_sources >/dev/null 2>&1; then
+            echo "wakeup_sources is not readable."
+            echo "Try running from root, or check /sys/kernel/debug/wakeup_sources manually."
+            return
+        fi
+        if [ -f "$BASELINE_FILE" ]; then
+            echo "Top wake sources, delta against overnight-start baseline when available:"
+            wakeup_sort_top 25 | while read -r count name; do
+                [ -n "$name" ] || continue
+                base="$(baseline_wakeup_count "$name")"
+                if [ -n "$base" ]; then
+                    delta=$((count - base))
+                    [ "$delta" -lt 0 ] 2>/dev/null && delta=0
+                    printf '%-36s count=%-10s delta=%-10s cause=%s\n' "$name" "$count" "$delta" "$(suspect_from_name "$name")"
+                else
+                    printf '%-36s count=%-10s delta=%-10s cause=%s\n' "$name" "$count" "n/a" "$(suspect_from_name "$name")"
+                fi
+            done
+        else
+            echo "Top wake sources, current cumulative ranking:"
+            wakeup_sort_top 25 | while read -r count name; do
+                [ -n "$name" ] || continue
+                printf '%-36s count=%-10s cause=%s\n' "$name" "$count" "$(suspect_from_name "$name")"
+            done
+            echo
+            echo "Tip: run overnight-start before sleep, then wakelock-report or overnight-report after waking for deltas."
+        fi
+        echo
+        echo "Common interpretation:"
+        echo "- modem/radio: weak signal, 5G standby, IMS/data activity. Keep calls safe; do not kill telephony."
+        echo "- Wi-Fi/CNSS: scan/PNO/AP noise/Wi-Fi calling/router multicast."
+        echo "- alarms/apps: app alarms, push spam, jobs; restrict non-whitelist apps in Thanox/Hail."
+        echo "- sensors/fingerprint/touch: AOD, pickup, tap-to-wake, screen-off UDFPS, pocket/touch sensors."
+    }
+}
+
+extract_packages() {
+    sed -n 's/.*\([A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9._-]*\).*/\1/p' 2>/dev/null |
+        grep -v '^\.$' |
+        sort |
+        uniq -c |
+        sort -nr |
+        head -n "${1:-20}"
+}
+
+cmd_alarm_report() {
+    {
+        echo "Peridot Idle Drain - Alarm Report"
+        date
+        echo
+        echo "Read-only summary from dumpsys alarm."
+        echo
+        dump="$(dumpsys alarm 2>/dev/null)"
+        if [ -z "$dump" ]; then
+            echo "dumpsys alarm unavailable."
+            return
+        fi
+        echo "Alarm/clock snippets:"
+        printf '%s\n' "$dump" | grep -i -m 40 -e "alarm clock" -e "next alarm" -e "wakeup" -e "pending alarm" -e "allow while idle" || echo "No concise alarm snippets found."
+        echo
+        echo "Package-ish alarm candidates:"
+        printf '%s\n' "$dump" | grep -i -e "wakeup" -e "allow while idle" -e "alarm" | extract_packages 25
+        echo
+        echo "Guidance: high non-protected candidates belong in Thanox/Hail restriction review, not direct system killing."
+    }
+}
+
+cmd_jobs_report() {
+    {
+        echo "Peridot Idle Drain - JobScheduler Report"
+        date
+        echo
+        echo "Read-only summary from dumpsys jobscheduler."
+        echo
+        dump="$(dumpsys jobscheduler 2>/dev/null)"
+        if [ -z "$dump" ]; then
+            echo "dumpsys jobscheduler unavailable."
+            return
+        fi
+        echo "Active/pending job snippets:"
+        printf '%s\n' "$dump" | grep -i -m 80 -e "running jobs" -e "pending" -e "active" -e "jobstatus" -e "source:" -e "u0a" || echo "No concise jobs snippets found."
+        echo
+        echo "Package-ish job candidates:"
+        printf '%s\n' "$dump" | grep -i -e "jobstatus" -e "source:" -e "service=" -e "package" | extract_packages 25
+        echo
+        echo "Guidance: frequent jobs from non-whitelist apps are good Thanox/Hail restriction candidates."
+    }
+}
+
+cmd_location_report() {
+    {
+        echo "Peridot Idle Drain - Location Report"
+        date
+        echo
+        echo "Read-only summary from dumpsys location."
+        echo
+        dump="$(dumpsys location 2>/dev/null)"
+        if [ -z "$dump" ]; then
+            echo "dumpsys location unavailable."
+            return
+        fi
+        echo "Active request/listener snippets:"
+        printf '%s\n' "$dump" | grep -i -m 80 -e "request" -e "listener" -e "provider" -e "foreground" -e "background" -e "gps" -e "fused" || echo "No concise location snippets found."
+        echo
+        echo "Package-ish location candidates:"
+        printf '%s\n' "$dump" | grep -i -e "request" -e "listener" -e "provider" -e "package" | extract_packages 25
+        echo
+        echo "Guidance: location candidates should be restricted in app permissions or Thanox unless they are protected."
+    }
+}
+
+cmd_sensor_report() {
+    {
+        echo "Peridot Idle Drain - Sensor Report"
+        date
+        echo
+        echo "Read-only summary from dumpsys sensorservice."
+        echo
+        dump="$(dumpsys sensorservice 2>/dev/null)"
+        if [ -z "$dump" ]; then
+            echo "dumpsys sensorservice unavailable."
+            return
+        fi
+        echo "Active connection/listener snippets:"
+        printf '%s\n' "$dump" | grep -i -m 100 -e "active" -e "connection" -e "listener" -e "sensor" -e "uid" -e "package" || echo "No concise sensor snippets found."
+        echo
+        echo "Package-ish sensor candidates:"
+        printf '%s\n' "$dump" | grep -i -e "connection" -e "listener" -e "package" -e "uid" | extract_packages 25
+        echo
+        echo "Guidance: if sensors dominate, keep AOD/pickup/tap/UDFPS off and review apps using motion/location sensors."
+    }
+}
+
+cmd_network_report() {
+    {
+        echo "Peridot Idle Drain - Network Report"
+        date
+        echo
+        echo "Read-only summaries from dumpsys connectivity and netstats."
+        echo
+        conn="$(dumpsys connectivity 2>/dev/null)"
+        stats="$(dumpsys netstats 2>/dev/null)"
+        if [ -n "$conn" ]; then
+            echo "Connectivity snippets:"
+            printf '%s\n' "$conn" | grep -i -m 80 -e "defaultnetwork" -e "networkagent" -e "wifi" -e "cellular" -e "background" -e "metered" -e "validated" || echo "No concise connectivity snippets found."
+            echo
+        else
+            echo "dumpsys connectivity unavailable."
+            echo
+        fi
+        if [ -n "$stats" ]; then
+            echo "Netstats package-ish candidates:"
+            printf '%s\n' "$stats" | grep -i -e "uid=" -e "iface=" -e "tag=" -e "set=BACKGROUND" -e "background" | head -n 200
+        else
+            echo "dumpsys netstats unavailable."
+        fi
+        echo
+        echo "Guidance: background network from non-whitelist apps should be restricted in Thanox/app settings."
+    }
+}
+
+third_party_apps_sorted() {
+    installed_user_packages | sort
+}
+
+cmd_snapshot_apps() {
+    mkdir -p "$(dirname "$INSTALLED_APPS_SNAPSHOT")" 2>/dev/null
+    third_party_apps_sorted > "$INSTALLED_APPS_SNAPSHOT" 2>/dev/null
+    chmod 0644 "$INSTALLED_APPS_SNAPSHOT" 2>/dev/null
+    log "installed apps snapshot updated"
+    echo "Snapshot updated: $INSTALLED_APPS_SNAPSHOT"
+}
+
+cmd_new_apps_report() {
+    load_config
+    current="/data/local/tmp/peridot_installed_apps_current.txt"
+    third_party_apps_sorted > "$current" 2>/dev/null
+    chmod 0644 "$current" 2>/dev/null
+    {
+        echo "Peridot Idle Drain - New Apps Report"
+        date
+        echo
+        echo "Snapshot: $INSTALLED_APPS_SNAPSHOT"
+        if [ ! -f "$INSTALLED_APPS_SNAPSHOT" ]; then
+            echo "No previous snapshot found. Creating one now."
+            cp "$current" "$INSTALLED_APPS_SNAPSHOT" 2>/dev/null
+            echo "Run new-apps-report again after installing apps."
+            return
+        fi
+        echo "New third-party apps since snapshot:"
+        new_count=0
+        comm -13 "$INSTALLED_APPS_SNAPSHOT" "$current" 2>/dev/null | while read -r pkg; do
+            [ -n "$pkg" ] || continue
+            new_count=$((new_count + 1))
+            if protected_contains "$pkg"; then
+                echo "- $pkg protected"
+            else
+                echo "- $pkg freeze/notification-review candidate"
+            fi
+        done
+        echo
+        echo "Guidance: add important new apps to protected-list, otherwise review them in Hail/Thanox."
+    }
+}
+
+write_restore_pack() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Restore Pack"
+        date
+        echo
+        echo "Target: Xiaomi peridot running VoltageOS"
+        echo "This is a text backup/helper. It does not auto-import untrusted files."
+        echo
+        echo "[current config.conf]"
+        cat "$CONFIG_FILE" 2>/dev/null
+        echo
+        echo "[protected packages]"
+        protected_print_lines
+        echo
+        echo "[helper files]"
+        for file in \
+            "$THANOX_FILE_DOWNLOAD" \
+            "$APP_POLICY_FILE_DOWNLOAD" \
+            "$HAIL_FILE_DOWNLOAD" \
+            "$HAIL_PROTECTED_FILE_DOWNLOAD" \
+            "$THANOX_RULES_FILE_DOWNLOAD" \
+            "$NOTIFICATION_FILE_DOWNLOAD" \
+            "$FULL_ANALYSIS_FILE_DOWNLOAD"; do
+            [ -f "$file" ] && echo "$file"
+        done
+        echo
+        echo "[manual restore examples]"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-reset'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-add com.whatsapp'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-profile ultra'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-night-schedule 1'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-refresh-rate 60'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'"
+        echo
+        echo "[safe category restore]"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category scanning'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category display'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category doze'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category screen'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category haptics'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category dark'"
+        echo "su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh restore-category all'"
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_restore_pack() {
+    load_config
+    cmd_export_thanox >/dev/null 2>&1
+    cmd_export_app_policy >/dev/null 2>&1
+    cmd_export_hail_lists >/dev/null 2>&1
+    cmd_export_thanox_templates >/dev/null 2>&1
+    cmd_notification_report >/dev/null 2>&1
+    wrote="$(write_both_download_tmp "$RESTORE_PACK_FILE_TMP" "$RESTORE_PACK_FILE_DOWNLOAD" write_restore_pack)"
+    log "restore pack exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported restore pack:"
+        echo "$wrote"
+    else
+        echo "Could not write restore pack. Try again after storage is mounted."
+    fi
+}
+
+restore_key_if_matches() {
+    category="$1"
+    namespace="$2"
+    key="$3"
+    value="$4"
+    match=0
+    case "$category" in
+        scanning)
+            case "$namespace|$key" in
+                global\|wifi_scan_always_enabled|global\|ble_scan_always_enabled|global\|adaptive_connectivity_enabled|global\|network_recommendations_enabled|global\|wifi_wakeup_enabled|global\|wifi_networks_available_notification_on|global\|mobile_data_always_on|secure\|nearby_scanning_enabled|secure\|nearby_scanning_permission_allowed|global\|nearby_scanning_enabled|global\|bluetooth_sanitized_exposure_notification_supported) match=1 ;;
+            esac ;;
+        display)
+            case "$namespace|$key" in
+                secure\|doze_enabled|secure\|doze_always_on|secure\|doze_pulse_on_pick_up|secure\|doze_pulse_on_double_tap|secure\|doze_pulse_on_tap|secure\|doze_wake_screen_gesture|secure\|ambient_display_enabled|secure\|ambient_display_always_on|secure\|pickup_gesture_enabled|secure\|wake_gesture_enabled|secure\|double_tap_to_wake|system\|screen_off_udfps_enabled|system\|dt2w|secure\|screen_off_udfps_enabled|system\|single_tap_to_wake) match=1 ;;
+            esac ;;
+        doze)
+            [ "$namespace|$key" = "device_config|device_idle.constants" ] && match=1 ;;
+        screen)
+            case "$namespace|$key" in
+                system\|peak_refresh_rate|system\|min_refresh_rate|system\|user_refresh_rate|secure\|user_refresh_rate|global\|wifi_verbose_logging_enabled|global\|adaptive_connectivity_enabled|global\|network_recommendations_enabled) match=1 ;;
+            esac ;;
+        haptics)
+            case "$namespace|$key" in
+                system\|haptic_feedback_enabled|system\|vibrate_when_ringing|system\|haptic_feedback_intensity|system\|notification_vibration_intensity|system\|media_vibration_intensity|system\|touch_vibration_intensity|secure\|haptic_feedback_enabled) match=1 ;;
+            esac ;;
+        dark)
+            case "$namespace|$key" in
+                secure\|ui_night_mode|system\|ui_night_mode) match=1 ;;
+            esac ;;
+    esac
+    [ "$match" = "1" ] || return 0
+    if [ "$namespace" = "device_config" ] && [ "$key" = "device_idle.constants" ]; then
+        restore_device_config "$value"
+    else
+        settings_delete_or_null_restore "$namespace" "$key" "$value"
+    fi
+}
+
+cmd_restore_category() {
+    category="$1"
+    case "$category" in
+        scanning|display|doze|screen|haptics|dark) ;;
+        all) cmd_restore; return ;;
+        *) echo "Usage: $0 restore-category scanning|display|doze|screen|haptics|dark|all"; exit 2 ;;
+    esac
+    if [ ! -f "$BACKUP_FILE" ]; then
+        echo "No backup found."
+        exit 0
+    fi
+    log "restore category requested: $category"
+    while IFS='|' read -r namespace key value; do
+        [ -n "$namespace" ] || continue
+        [ -n "$key" ] || continue
+        restore_key_if_matches "$category" "$namespace" "$key" "$value"
+    done < "$BACKUP_FILE"
+    echo "Restore category completed: $category"
+}
+
+write_thanox_templates() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Thanox Templates"
+        date
+        echo
+        echo "Copy these ideas into Thanox manually. Package names and Thanox UI labels can vary."
+        echo
+        echo "[Never freeze / protected]"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "[Template 1: screen off freeze non-whitelist]"
+        echo "Trigger: screen off"
+        echo "Condition: app is third-party and not in protected list"
+        echo "Actions: prevent background start; restrict wakeups/receivers; hibernate/freeze after delay"
+        echo "Exclude: protected packages, active music/navigation/call apps"
+        echo
+        echo "[Template 2: unlock relax]"
+        echo "Trigger: screen unlocked"
+        echo "Action: allow user-launched apps to open normally"
+        echo "Keep: non-whitelist apps restricted until manually opened"
+        echo
+        echo "[Template 3: charging relax]"
+        echo "Trigger: charging connected"
+        echo "Action: optionally relax freeze delay for apps you are using"
+        echo "Trigger: charging disconnected or screen off"
+        echo "Action: return to screen-off freeze policy"
+        echo
+        echo "[Template 4: night ultra]"
+        echo "Trigger: 23:00-07:00 and screen off"
+        echo "Action: freeze/restrict every non-whitelist user app"
+        echo "Keep: Phone, Clock, SMS, IMS, GMS, SystemUI, root, LSPosed and chosen messenger"
+        echo
+        echo "[Template 5: noisy app receivers]"
+        echo "Target: freeze candidates such as shopping/payment/social/video/news/games"
+        echo "Action: block self-start/background start and noisy receivers where Thanox exposes safe controls"
+        echo "Do not apply to protected/core packages."
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_thanox_templates() {
+    load_config
+    wrote="$(write_both_download_tmp "$THANOX_RULES_FILE_TMP" "$THANOX_RULES_FILE_DOWNLOAD" write_thanox_templates)"
+    log "thanox templates exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported Thanox templates:"
+        echo "$wrote"
+    else
+        echo "Could not write Thanox templates. Try again after storage is mounted."
+    fi
+}
+
+cmd_export_hail_lists() {
+    load_config
+    candidates_wrote="$(write_dual_file "$HAIL_FILE_TMP" "$HAIL_FILE_DOWNLOAD" write_hail_candidates)"
+    protected_wrote="$(write_dual_file "$HAIL_PROTECTED_FILE_TMP" "$HAIL_PROTECTED_FILE_DOWNLOAD" write_hail_protected)"
+    log "hail lists exported"
+    echo "Exported Hail freeze candidates:"
+    [ -n "$candidates_wrote" ] && echo "$candidates_wrote" || echo "not written"
+    echo
+    echo "Exported Hail never-freeze/protected list:"
+    [ -n "$protected_wrote" ] && echo "$protected_wrote" || echo "not written"
+}
+
+write_full_analysis() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - All-in-One Analysis"
+        date
+        echo
+        echo "Target: Xiaomi peridot running VoltageOS"
+        echo "This report is read-only and heuristic. It does not block wakelocks or change apps."
+        echo
+        echo "===== IDLE SCORE ====="
+        cmd_idle_score
+        echo
+        echo "===== SAFETY CHECK ====="
+        cmd_safety_check
+        echo
+        echo "===== WAKELOCKS ====="
+        cmd_wakelock_report
+        echo
+        echo "===== ALARMS ====="
+        cmd_alarm_report
+        echo
+        echo "===== JOBSCHEDULER ====="
+        cmd_jobs_report
+        echo
+        echo "===== LOCATION ====="
+        cmd_location_report
+        echo
+        echo "===== SENSORS ====="
+        cmd_sensor_report
+        echo
+        echo "===== NETWORK ====="
+        cmd_network_report
+        echo
+        echo "===== NOTIFICATION REVIEW SUMMARY ====="
+        echo "Non-protected user apps that may deserve manual notification review:"
+        installed_user_packages_not_protected | head -n 60 | sed 's/^/- /'
+        echo
+        echo "Keep notifications for calls, Clock/alarm, SMS, and selected personal messengers."
+        echo
+        echo "===== APP POLICY SUMMARY ====="
+        echo "Protected packages:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Recommended optional whitelist apps:"
+        recommended_optional_print_lines | sed 's/^/- /'
+        echo
+        echo "Freeze candidates:"
+        installed_user_packages_not_protected | head -n 80 | sed 's/^/- /'
+    } > "$target" 2>&1
+}
+
+cmd_analyze_all() {
+    load_config
+    wrote="$(write_both_download_tmp "$FULL_ANALYSIS_FILE_TMP" "$FULL_ANALYSIS_FILE_DOWNLOAD" write_full_analysis)"
+    log "full analysis written"
+    if [ -n "$wrote" ]; then
+        echo "Wrote full analysis:"
+        echo "$wrote"
+        echo
+        cat "$FULL_ANALYSIS_FILE_TMP" 2>/dev/null || cat "$FULL_ANALYSIS_FILE_DOWNLOAD" 2>/dev/null
+    else
+        echo "Could not write full analysis. Printing directly:"
+        write_full_analysis /dev/stdout
+    fi
+}
+
 write_module_backup() {
     target="$1"
     {
@@ -1675,6 +2182,17 @@ case "$1" in
     restore) cmd_restore ;;
     status) cmd_status ;;
     diagnose) cmd_diagnose ;;
+    analyze-all) cmd_analyze_all ;;
+    wakelock-report) cmd_wakelock_report ;;
+    alarm-report) cmd_alarm_report ;;
+    jobs-report) cmd_jobs_report ;;
+    location-report) cmd_location_report ;;
+    sensor-report) cmd_sensor_report ;;
+    network-report) cmd_network_report ;;
+    new-apps-report) cmd_new_apps_report ;;
+    snapshot-apps) cmd_snapshot_apps ;;
+    export-restore-pack) cmd_export_restore_pack ;;
+    restore-category) cmd_restore_category "$2" ;;
     idle-score) cmd_idle_score ;;
     safety-check) cmd_safety_check ;;
     overnight-start) cmd_overnight_start ;;
@@ -1704,13 +2222,15 @@ case "$1" in
     export-thanox) cmd_export_thanox ;;
     export-app-policy) cmd_export_app_policy ;;
     export-hail) cmd_export_hail ;;
+    export-hail-lists) cmd_export_hail_lists ;;
     export-thanox-rules) cmd_export_thanox_rules ;;
+    export-thanox-templates) cmd_export_thanox_templates ;;
     notification-report) cmd_notification_report ;;
     my-setup) cmd_my_setup ;;
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|status|diagnose|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-thanox-rules|notification-report|my-setup|logs|clear-logs}"
+        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|restore-category category|status|diagnose|analyze-all|wakelock-report|alarm-report|jobs-report|location-report|sensor-report|network-report|new-apps-report|snapshot-apps|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|export-restore-pack|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-hail-lists|export-thanox-rules|export-thanox-templates|notification-report|my-setup|logs|clear-logs}"
         exit 2
         ;;
 esac
