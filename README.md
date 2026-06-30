@@ -36,13 +36,14 @@ HAPTICS_OFF=0
 DARK_MODE=0
 DARK_WALLPAPER=0
 EXPORT_APP_POLICY=1
+MY_SETUP=0
 SCREEN_ON_REFRESH_RATE=60
 PROTECTED_PACKAGES=com.android.dialer,com.android.phone,com.android.server.telecom,...
 ```
 
 ## Profiles and Schedule
 
-Version 1.4.0 adds profile presets:
+Profile presets:
 
 - `balanced`: scanning and Doze tuning, keeps display convenience and 120 Hz
 - `idle`: default idle saver, scanning plus display idle plus Doze
@@ -215,6 +216,42 @@ Android/KernelSU cannot reliably allow only personal messages while globally mut
 - mute bots/other chats manually or through Telegram folders/notification exceptions
 - keep Telegram whitelisted only if instant personal messages matter
 
+## v1.5.0 Ultimate Workflow
+
+Version 1.5.0 adds the analyzer and export pack for a stricter setup where calls and Clock/alarm stay safe, while Thanox/Hail manually handle non-whitelist apps.
+
+Recommended flow:
+
+1. Install the ZIP and reboot.
+2. Run **My Setup** from WebUI or shell.
+3. Open the exported Hail candidate list and manually select apps you want Hail to freeze.
+4. Open the exported Thanox rules and manually recreate the rules in Thanox Pro.
+5. Before sleep, run `overnight-start`.
+6. After waking, run `overnight-report`.
+7. Run `safety-check` after changing profiles or protected packages.
+
+My Setup enables profile `ultra`, night schedule, aggressive mode, scanning/display/Doze tuning, Ultra Idle, screen-on saver, haptics off, dark mode, best-effort dark wallpaper, 60 Hz refresh cap, and all helper exports.
+
+My Setup does not freeze, disable, suspend, force-stop, or notification-block packages. Hail and Thanox remain manual because package freezing is personal and can break alerts if applied blindly.
+
+New reports and exports:
+
+```txt
+/data/local/tmp/peridot_safety_check.txt
+/data/local/tmp/peridot_idle_baseline.txt
+/data/local/tmp/peridot_overnight_report.txt
+/data/local/tmp/peridot_hail_freeze_candidates.txt
+/sdcard/Download/peridot_hail_freeze_candidates.txt
+/data/local/tmp/peridot_hail_protected_packages.txt
+/sdcard/Download/peridot_hail_protected_packages.txt
+/data/local/tmp/peridot_thanox_rules.txt
+/sdcard/Download/peridot_thanox_rules.txt
+/data/local/tmp/peridot_notification_review.txt
+/sdcard/Download/peridot_notification_review.txt
+```
+
+Telegram personal-only limitation remains in-app only. Keep Telegram whitelisted if you need personal messages, then configure Telegram itself: Private Chats on, Groups off, Channels off, and mute bots/other chats manually.
+
 ## What It Does Not Touch
 
 This module intentionally does not:
@@ -238,7 +275,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.4.0.zip
+dist/peridot-idle-drain-ksu-next-v1.5.0.zip
 ```
 
 Steps:
@@ -267,9 +304,16 @@ The WebUI provides:
 - Enable / disable dark mode
 - Enable / disable dark wallpaper
 - Apply now
+- My Setup
+- Safety Check
+- Overnight Start
+- Overnight Report
 - Diagnose
 - Idle score
 - Export module backup
+- Export Hail candidates
+- Export Thanox rules
+- Notification report
 - Restore backed-up settings
 - View logs
 - Clear logs
@@ -409,6 +453,48 @@ su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh idle-score'
 ```
 
 The score reads suspend and wakeup-source diagnostics when available and classifies the current state as `good`, `warning`, or `bad`. It is only a heuristic; overnight drain testing is still the real proof.
+
+Safety check for calls and Clock:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh safety-check'
+```
+
+It reads default dialer role where available, package presence, next alarm, telephony registry snippets and phone/IMS snippets. It is read-only and tolerant of missing ROM commands.
+
+Overnight analyzer:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh overnight-start'
+# leave phone idle overnight
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh overnight-report'
+```
+
+The report compares battery level, elapsed time, suspend failed/short deltas and top wakeup source where readable. It classifies the result as `good`, `warning`, or `bad`, with suspected cause buckets such as modem/radio, Wi-Fi/CNSS, alarms/apps, sensors, fingerprint/touch, or unknown.
+
+Export Hail candidates:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-hail'
+```
+
+Export Thanox rules:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-thanox-rules'
+```
+
+Export notification review candidates:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh notification-report'
+```
+
+Apply the personal ultra setup and generate all app-control helper files:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh my-setup'
+```
 
 Export module config and protected package backup:
 

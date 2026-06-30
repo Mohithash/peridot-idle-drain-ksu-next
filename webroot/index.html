@@ -344,6 +344,10 @@
     <section>
       <div class="actions">
         <button class="primary" id="apply">Apply now</button>
+        <button class="primary" id="mySetup">My Setup</button>
+        <button id="safetyCheck">Safety Check</button>
+        <button id="overnightStart">Overnight Start</button>
+        <button id="overnightReport">Overnight Report</button>
         <button id="diagnose">Diagnose</button>
         <button id="idleScore">Idle score</button>
         <button id="exportBackup">Export backup</button>
@@ -370,6 +374,9 @@
         <button id="listPackages">Show protected</button>
         <button id="resetPackages">Reset defaults</button>
         <button id="exportThanox">Export Thanox helper</button>
+        <button id="exportThanoxRules">Export Thanox rules</button>
+        <button id="exportHail">Export Hail</button>
+        <button id="notificationReport">Notification report</button>
         <button id="exportPolicy">Export app policy</button>
       </div>
     </section>
@@ -525,6 +532,23 @@
       await refresh();
     });
 
+    document.getElementById('mySetup').addEventListener('click', async () => {
+      show(await run('my-setup'));
+      await refresh();
+    });
+
+    document.getElementById('safetyCheck').addEventListener('click', async () => {
+      show(await run('safety-check'));
+    });
+
+    document.getElementById('overnightStart').addEventListener('click', async () => {
+      show(await run('overnight-start'));
+    });
+
+    document.getElementById('overnightReport').addEventListener('click', async () => {
+      show(await run('overnight-report'));
+    });
+
     document.getElementById('applyProfile').addEventListener('click', async () => {
       show(await run(`apply-profile ${profile.value}`));
       await refresh();
@@ -614,6 +638,18 @@
 
     document.getElementById('exportThanox').addEventListener('click', async () => {
       show(await run('export-thanox'));
+    });
+
+    document.getElementById('exportThanoxRules').addEventListener('click', async () => {
+      show(await run('export-thanox-rules'));
+    });
+
+    document.getElementById('exportHail').addEventListener('click', async () => {
+      show(await run('export-hail'));
+    });
+
+    document.getElementById('notificationReport').addEventListener('click', async () => {
+      show(await run('notification-report'));
     });
 
     document.getElementById('exportPolicy').addEventListener('click', async () => {

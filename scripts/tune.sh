@@ -5,10 +5,21 @@ CONFIG_FILE="$MODDIR/config.conf"
 LOG_FILE="/data/local/tmp/peridot_idle_drain.log"
 BACKUP_FILE="/data/local/tmp/peridot_idle_drain_backup.txt"
 DIAG_FILE="/data/local/tmp/peridot_idle_drain_diagnose.txt"
+SAFETY_FILE="/data/local/tmp/peridot_safety_check.txt"
+BASELINE_FILE="/data/local/tmp/peridot_idle_baseline.txt"
+OVERNIGHT_FILE="/data/local/tmp/peridot_overnight_report.txt"
 THANOX_FILE_TMP="/data/local/tmp/peridot_thanox_whitelist.txt"
 THANOX_FILE_DOWNLOAD="/sdcard/Download/peridot_thanox_whitelist.txt"
 APP_POLICY_FILE_TMP="/data/local/tmp/peridot_app_policy.txt"
 APP_POLICY_FILE_DOWNLOAD="/sdcard/Download/peridot_app_policy.txt"
+HAIL_FILE_TMP="/data/local/tmp/peridot_hail_freeze_candidates.txt"
+HAIL_FILE_DOWNLOAD="/sdcard/Download/peridot_hail_freeze_candidates.txt"
+HAIL_PROTECTED_FILE_TMP="/data/local/tmp/peridot_hail_protected_packages.txt"
+HAIL_PROTECTED_FILE_DOWNLOAD="/sdcard/Download/peridot_hail_protected_packages.txt"
+THANOX_RULES_FILE_TMP="/data/local/tmp/peridot_thanox_rules.txt"
+THANOX_RULES_FILE_DOWNLOAD="/sdcard/Download/peridot_thanox_rules.txt"
+NOTIFICATION_FILE_TMP="/data/local/tmp/peridot_notification_review.txt"
+NOTIFICATION_FILE_DOWNLOAD="/sdcard/Download/peridot_notification_review.txt"
 MODULE_BACKUP_FILE_TMP="/data/local/tmp/peridot_idle_module_backup.txt"
 MODULE_BACKUP_FILE_DOWNLOAD="/sdcard/Download/peridot_idle_module_backup.txt"
 BLACK_WALLPAPER="/data/local/tmp/peridot_black_wallpaper.png"
@@ -38,6 +49,7 @@ ensure_files() {
             echo "DARK_MODE=0"
             echo "DARK_WALLPAPER=0"
             echo "EXPORT_APP_POLICY=1"
+            echo "MY_SETUP=0"
             echo "SCREEN_ON_REFRESH_RATE=60"
             echo "PROTECTED_PACKAGES=$DEFAULT_PROTECTED_PACKAGES"
         } > "$CONFIG_FILE"
@@ -67,6 +79,7 @@ load_config() {
     DARK_MODE=0
     DARK_WALLPAPER=0
     EXPORT_APP_POLICY=1
+    MY_SETUP=0
     SCREEN_ON_REFRESH_RATE=60
     PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
     # shellcheck disable=SC1090
@@ -98,6 +111,7 @@ load_config() {
     DARK_MODE="$(bool_or_zero "$DARK_MODE")"
     DARK_WALLPAPER="$(bool_or_zero "$DARK_WALLPAPER")"
     EXPORT_APP_POLICY="$(bool_or_zero "$EXPORT_APP_POLICY")"
+    MY_SETUP="$(bool_or_zero "$MY_SETUP")"
     case "$SCREEN_ON_REFRESH_RATE" in
         60|90|120) ;;
         *) SCREEN_ON_REFRESH_RATE=60 ;;
@@ -123,6 +137,7 @@ save_config() {
         echo "DARK_MODE=$DARK_MODE"
         echo "DARK_WALLPAPER=$DARK_WALLPAPER"
         echo "EXPORT_APP_POLICY=$EXPORT_APP_POLICY"
+        echo "MY_SETUP=$MY_SETUP"
         echo "SCREEN_ON_REFRESH_RATE=$SCREEN_ON_REFRESH_RATE"
         echo "PROTECTED_PACKAGES=$PROTECTED_PACKAGES"
     } > "$CONFIG_FILE"
@@ -428,6 +443,14 @@ installed_user_packages() {
     pm list packages -3 2>/dev/null | sed 's/^package://'
 }
 
+installed_user_packages_not_protected() {
+    installed_user_packages | while read -r pkg; do
+        [ -n "$pkg" ] || continue
+        protected_contains "$pkg" && continue
+        echo "$pkg"
+    done
+}
+
 recommended_optional_print_lines() {
     old_ifs="$IFS"
     IFS=,
@@ -437,6 +460,30 @@ recommended_optional_print_lines() {
         IFS=,
     done
     IFS="$old_ifs"
+}
+
+write_dual_file() {
+    tmp_target="$1"
+    download_target="$2"
+    writer="$3"
+    mkdir -p "$(dirname "$tmp_target")" 2>/dev/null
+    wrote=""
+    if "$writer" "$tmp_target"; then
+        chmod 0644 "$tmp_target" 2>/dev/null
+        wrote="$tmp_target"
+    fi
+    if [ -d /sdcard/Download ] || mkdir -p /sdcard/Download 2>/dev/null; then
+        if "$writer" "$download_target"; then
+            chmod 0644 "$download_target" 2>/dev/null
+            if [ -n "$wrote" ]; then
+                wrote="$wrote
+$download_target"
+            else
+                wrote="$download_target"
+            fi
+        fi
+    fi
+    [ -n "$wrote" ] && printf '%s\n' "$wrote"
 }
 
 protected_add_pkg() {
@@ -641,6 +688,148 @@ $APP_POLICY_FILE_DOWNLOAD"
     fi
 }
 
+write_hail_candidates() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Hail Freeze Candidates"
+        date
+        echo
+        echo "Use in Hail manually. This module does not freeze, suspend, or disable packages."
+        echo "Freeze candidates are installed user apps that are not in the protected package list."
+        echo
+        echo "Protected packages to exclude from Hail freeze:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Freeze candidates:"
+        installed_user_packages_not_protected | sed 's/^/- /'
+        echo
+        echo "Manual guidance:"
+        echo "- Select these candidates in Hail only if you do not need their instant alerts."
+        echo "- Keep Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, root, LSPosed, SMS, and chosen messenger apps unfrozen."
+        echo "- For apps such as Paytm, shopping, food, social, video, news and games, freeze after exit/screen off if you only open them manually."
+        echo "- Test banking/payment apps before relying on alerts or OTP flows."
+    } > "$target" 2>/dev/null
+}
+
+write_hail_protected() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Protected Packages"
+        date
+        echo
+        echo "Do not freeze these in Hail/Thanox:"
+        protected_print_lines
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_hail() {
+    load_config
+    wrote="$(write_dual_file "$HAIL_FILE_TMP" "$HAIL_FILE_DOWNLOAD" write_hail_candidates)"
+    protected_wrote="$(write_dual_file "$HAIL_PROTECTED_FILE_TMP" "$HAIL_PROTECTED_FILE_DOWNLOAD" write_hail_protected)"
+    log "hail candidates exported"
+    if [ -n "$wrote$protected_wrote" ]; then
+        echo "Exported Hail freeze candidates:"
+        [ -n "$wrote" ] && echo "$wrote"
+        echo
+        echo "Exported protected package list:"
+        [ -n "$protected_wrote" ] && echo "$protected_wrote"
+    else
+        echo "Could not write Hail files. Try again after storage is mounted."
+    fi
+}
+
+write_thanox_rules() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Thanox Rules Pack"
+        date
+        echo
+        echo "These are copy/paste conceptual rules. This module does not edit Thanox databases."
+        echo
+        echo "Protected whitelist:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Rule concept: screen off ultra"
+        echo "- Trigger: screen off"
+        echo "- Target: user apps not in protected whitelist"
+        echo "- Action: prevent background start"
+        echo "- Action: restrict receivers/wakeups where safe"
+        echo "- Action: hibernate/freeze after a delay"
+        echo "- Exclude: Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, root, LSPosed, SMS, chosen messenger"
+        echo
+        echo "Rule concept: manual launch"
+        echo "- Trigger: app launched by user"
+        echo "- Action: allow/unfreeze the launched app"
+        echo "- Trigger: app exit or screen off"
+        echo "- Action: refreeze noisy non-whitelist apps"
+        echo
+        echo "Rule concept: notification cleanup"
+        echo "- Disable notification categories in Android/app settings for non-whitelist apps."
+        echo "- Keep notification access only for calls, Clock/alarm, SMS, and chosen personal messengers."
+        echo "- Do not globally block notifications for protected packages."
+        echo
+        echo "Rule concept: charging relax"
+        echo "- Trigger: charging connected"
+        echo "- Action: optionally relax app freezing for apps you are actively using."
+        echo "- Trigger: charging disconnected or screen off"
+        echo "- Action: return to ultra screen-off policy."
+        echo
+        echo "Rule concept: night ultra"
+        echo "- Trigger: night window, e.g. 23:00-07:00"
+        echo "- Action: freeze/restrict all non-whitelist user apps after screen off."
+        echo "- Keep exact alarms and Clock safe."
+        echo
+        echo "Telegram personal-only note:"
+        echo "- Thanox/KernelSU cannot reliably keep only personal Telegram chats while muting groups/channels/bots."
+        echo "- Configure Telegram in-app: Private Chats on; Groups off; Channels off; mute bots/other chats manually."
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_thanox_rules() {
+    load_config
+    wrote="$(write_dual_file "$THANOX_RULES_FILE_TMP" "$THANOX_RULES_FILE_DOWNLOAD" write_thanox_rules)"
+    log "thanox rules exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported Thanox rules:"
+        echo "$wrote"
+    else
+        echo "Could not write Thanox rules. Try again after storage is mounted."
+    fi
+}
+
+write_notification_report() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Notification Review"
+        date
+        echo
+        echo "These installed user apps are not protected and are candidates for manual notification blocking."
+        echo "This module does not revoke notification permissions or sweep appops."
+        echo
+        echo "Keep notifications enabled for:"
+        echo "- calls / Phone / Telecom"
+        echo "- Clock / alarms"
+        echo "- SMS if used"
+        echo "- selected personal messenger apps"
+        echo "- any banking/payment app only if you truly need alerts"
+        echo
+        echo "Notification-block candidates:"
+        installed_user_packages_not_protected | sed 's/^/- /'
+    } > "$target" 2>/dev/null
+}
+
+cmd_notification_report() {
+    load_config
+    wrote="$(write_dual_file "$NOTIFICATION_FILE_TMP" "$NOTIFICATION_FILE_DOWNLOAD" write_notification_report)"
+    log "notification report exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported notification review:"
+        echo "$wrote"
+    else
+        echo "Could not write notification report. Try again after storage is mounted."
+    fi
+}
+
 print_setting() {
     printf '%s %-42s %s\n' "$1" "$2" "$(settings_get "$1" "$2")"
 }
@@ -828,6 +1017,7 @@ cmd_status() {
     echo "Dark mode: $DARK_MODE"
     echo "Dark wallpaper: $DARK_WALLPAPER"
     echo "Export app policy: $EXPORT_APP_POLICY"
+    echo "My setup: $MY_SETUP"
     echo "Screen-on refresh rate: $SCREEN_ON_REFRESH_RATE"
     echo "Protected packages:"
     protected_print_lines | sed 's/^/  /'
@@ -835,8 +1025,14 @@ cmd_status() {
     echo "Log: $LOG_FILE"
     echo "Backup: $BACKUP_FILE"
     echo "Diagnose: $DIAG_FILE"
+    echo "Safety check: $SAFETY_FILE"
+    echo "Overnight baseline: $BASELINE_FILE"
+    echo "Overnight report: $OVERNIGHT_FILE"
     echo "Thanox helper: $THANOX_FILE_TMP"
     echo "App policy: $APP_POLICY_FILE_TMP"
+    echo "Hail candidates: $HAIL_FILE_TMP"
+    echo "Thanox rules: $THANOX_RULES_FILE_TMP"
+    echo "Notification review: $NOTIFICATION_FILE_TMP"
     [ -f "$BACKUP_FILE" ] && echo "Backup exists: yes" || echo "Backup exists: no"
 }
 
@@ -933,6 +1129,269 @@ cmd_diagnose() {
     chmod 0600 "$DIAG_FILE" 2>/dev/null
     log "diagnose written: $DIAG_FILE"
     cat "$DIAG_FILE"
+}
+
+battery_level() {
+    dumpsys battery 2>/dev/null | awk -F: '/^[[:space:]]*level:/ { gsub(/ /, "", $2); print $2; exit }'
+}
+
+battery_status() {
+    dumpsys battery 2>/dev/null | awk -F: '/^[[:space:]]*status:/ { gsub(/ /, "", $2); print $2; exit }'
+}
+
+suspend_value() {
+    key="$1"
+    stats="$2"
+    printf '%s\n' "$stats" | awk -v wanted="$key" '
+        BEGIN { wanted=tolower(wanted) }
+        {
+            name=tolower($1)
+            gsub(/:/, "", name)
+            if (name ~ wanted) {
+                print $NF
+                exit
+            }
+        }' 2>/dev/null
+}
+
+wakeup_top_name() {
+    read_wakeup_sources | tail -n +2 2>/dev/null | sort -k7 -nr 2>/dev/null | head -n 1 | awk '{print $1}'
+}
+
+wakeup_top_count() {
+    read_wakeup_sources | tail -n +2 2>/dev/null | sort -k7 -nr 2>/dev/null | head -n 1 | awk '{print $7}'
+}
+
+write_selected_settings() {
+    for item in \
+        "global wifi_scan_always_enabled" \
+        "global ble_scan_always_enabled" \
+        "global adaptive_connectivity_enabled" \
+        "global mobile_data_always_on" \
+        "system peak_refresh_rate" \
+        "system min_refresh_rate" \
+        "system haptic_feedback_enabled" \
+        "system vibrate_when_ringing" \
+        "secure location_mode" \
+        "secure doze_enabled" \
+        "secure doze_always_on" \
+        "secure ambient_display_enabled" \
+        "secure pickup_gesture_enabled" \
+        "system screen_off_udfps_enabled"; do
+        print_setting ${item}
+    done
+}
+
+cmd_safety_check() {
+    load_config
+    {
+        echo "Peridot Idle Drain - Safety Check"
+        date
+        echo
+        echo "Purpose: read-only calls + Clock/alarm sanity report."
+        echo "This command does not modify packages, appops, telephony, IMS, alarms, or settings."
+        echo
+        echo "Protected packages:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Default dialer role:"
+        cmd role holders android.app.role.DIALER 2>/dev/null || echo "cmd role unavailable"
+        echo
+        echo "Dialer/Phone/Clock package presence:"
+        for pkg in \
+            com.android.dialer \
+            com.google.android.dialer \
+            com.android.phone \
+            com.android.server.telecom \
+            com.android.providers.telephony \
+            com.android.deskclock \
+            com.google.android.deskclock \
+            com.google.android.gms \
+            com.google.android.gsf \
+            com.google.android.ims \
+            com.android.systemui; do
+            if pm path "$pkg" >/dev/null 2>&1; then
+                echo "$pkg: present"
+            else
+                echo "$pkg: not found"
+            fi
+        done
+        echo
+        echo "Next alarm:"
+        echo "secure next_alarm_formatted=$(settings get secure next_alarm_formatted 2>/dev/null)"
+        dumpsys alarm 2>/dev/null | grep -i -m 8 -e "next alarm" -e "pending alarm" -e "alarm clock" || echo "dumpsys alarm snippet unavailable"
+        echo
+        echo "Telephony registry snippet:"
+        dumpsys telephony.registry 2>/dev/null | grep -i -m 30 -e "mServiceState" -e "mSignalStrength" -e "mCallState" -e "mDataConnectionState" -e "mMessageWaiting" -e "mCallForwarding" || echo "telephony.registry unavailable"
+        echo
+        echo "Phone/IMS snippet:"
+        dumpsys phone 2>/dev/null | grep -i -m 40 -e "ims" -e "volte" -e "registered" -e "service state" -e "mCi" -e "mPhoneId" || echo "dumpsys phone unavailable"
+        echo
+        echo "Result guidance:"
+        echo "- If at least one dialer, Phone/Telecom/Telephony Provider, Clock, GMS/GSF/IMS and SystemUI are present, the module's protected list is call/clock oriented."
+        echo "- Verify by placing one test call and setting one alarm after changing profiles."
+    } > "$SAFETY_FILE" 2>&1
+    chmod 0600 "$SAFETY_FILE" 2>/dev/null
+    log "safety check written: $SAFETY_FILE"
+    cat "$SAFETY_FILE"
+}
+
+cmd_overnight_start() {
+    load_config
+    stats="$(read_suspend_stats)"
+    {
+        echo "PERIDOT_IDLE_BASELINE=1"
+        echo "timestamp=$(now_epoch)"
+        echo "date=$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null)"
+        echo "battery_level=$(battery_level)"
+        echo "battery_status=$(battery_status)"
+        echo "suspend_attempts=$(suspend_value attempt "$stats")"
+        echo "suspend_success=$(suspend_value success "$stats")"
+        echo "suspend_failed=$(suspend_value fail "$stats")"
+        echo "suspend_short=$(suspend_value short "$stats")"
+        echo "top_wakeup_name=$(wakeup_top_name)"
+        echo "top_wakeup_count=$(wakeup_top_count)"
+        echo "profile=$PROFILE"
+        echo "aggressive=$AGGRESSIVE"
+        echo "ultra=$ULTRA_IDLE"
+        echo "refresh=$SCREEN_ON_REFRESH_RATE"
+        echo
+        echo "[deviceidle]"
+        dumpsys deviceidle 2>/dev/null | head -n 80
+        echo
+        echo "[selected_settings]"
+        write_selected_settings
+        echo
+        echo "[suspend_stats]"
+        printf '%s\n' "$stats"
+        echo
+        echo "[wakeup_sources_top_30]"
+        read_wakeup_sources | head -n 1 2>/dev/null
+        read_wakeup_sources | tail -n +2 2>/dev/null | sort -k7 -nr 2>/dev/null | head -n 30
+    } > "$BASELINE_FILE" 2>&1
+    chmod 0600 "$BASELINE_FILE" 2>/dev/null
+    log "overnight baseline written: $BASELINE_FILE"
+    echo "Overnight baseline saved: $BASELINE_FILE"
+}
+
+baseline_get() {
+    key="$1"
+    grep -m 1 "^$key=" "$BASELINE_FILE" 2>/dev/null | sed "s/^$key=//"
+}
+
+classify_overnight() {
+    drain_per_hour="$1"
+    failed_delta="$2"
+    short_delta="$3"
+    top_name="$4"
+    classification="good"
+    if [ -n "$drain_per_hour" ]; then
+        whole="${drain_per_hour%.*}"
+        [ -n "$whole" ] || whole=0
+        if [ "$whole" -ge 2 ] 2>/dev/null; then
+            classification="bad"
+        elif [ "$whole" -ge 1 ] 2>/dev/null; then
+            classification="warning"
+        fi
+    fi
+    if [ "$failed_delta" -gt 1000 ] 2>/dev/null || [ "$short_delta" -gt 3000 ] 2>/dev/null; then
+        [ "$classification" = "good" ] && classification="warning"
+    fi
+    echo "$classification|$(suspect_from_name "$top_name")"
+}
+
+cmd_overnight_report() {
+    if [ ! -f "$BASELINE_FILE" ]; then
+        echo "No baseline found. Run overnight-start before sleep first."
+        exit 1
+    fi
+    start_ts="$(baseline_get timestamp)"
+    start_level="$(baseline_get battery_level)"
+    start_failed="$(baseline_get suspend_failed)"
+    start_short="$(baseline_get suspend_short)"
+    start_attempts="$(baseline_get suspend_attempts)"
+    start_top_name="$(baseline_get top_wakeup_name)"
+    start_top_count="$(baseline_get top_wakeup_count)"
+    now_ts="$(now_epoch)"
+    cur_level="$(battery_level)"
+    stats="$(read_suspend_stats)"
+    cur_attempts="$(suspend_value attempt "$stats")"
+    cur_failed="$(suspend_value fail "$stats")"
+    cur_short="$(suspend_value short "$stats")"
+    cur_top_name="$(wakeup_top_name)"
+    cur_top_count="$(wakeup_top_count)"
+
+    [ -n "$start_ts" ] || start_ts=0
+    [ -n "$now_ts" ] || now_ts=0
+    elapsed=$((now_ts - start_ts))
+    [ "$elapsed" -lt 0 ] 2>/dev/null && elapsed=0
+    hours="$(awk -v s="$elapsed" 'BEGIN { if (s > 0) printf "%.2f", s / 3600; else printf "0.00" }' 2>/dev/null)"
+
+    battery_delta="unknown"
+    drain_per_hour=""
+    if [ -n "$start_level" ] && [ -n "$cur_level" ]; then
+        battery_delta=$((start_level - cur_level))
+        drain_per_hour="$(awk -v d="$battery_delta" -v s="$elapsed" 'BEGIN { if (s > 0) printf "%.2f", d / (s / 3600); else printf "0.00" }' 2>/dev/null)"
+    fi
+
+    [ -n "$start_failed" ] || start_failed=0
+    [ -n "$cur_failed" ] || cur_failed=0
+    [ -n "$start_short" ] || start_short=0
+    [ -n "$cur_short" ] || cur_short=0
+    [ -n "$start_attempts" ] || start_attempts=0
+    [ -n "$cur_attempts" ] || cur_attempts=0
+    failed_delta=$((cur_failed - start_failed))
+    short_delta=$((cur_short - start_short))
+    attempts_delta=$((cur_attempts - start_attempts))
+    [ "$failed_delta" -lt 0 ] 2>/dev/null && failed_delta=0
+    [ "$short_delta" -lt 0 ] 2>/dev/null && short_delta=0
+    [ "$attempts_delta" -lt 0 ] 2>/dev/null && attempts_delta=0
+
+    [ -n "$cur_top_name" ] || cur_top_name="unavailable"
+    class_suspect="$(classify_overnight "$drain_per_hour" "$failed_delta" "$short_delta" "$cur_top_name")"
+    classification="${class_suspect%%|*}"
+    suspected="${class_suspect#*|}"
+
+    {
+        echo "Peridot Idle Drain - Overnight Report"
+        date
+        echo
+        echo "Baseline: $BASELINE_FILE"
+        echo "Elapsed seconds: $elapsed"
+        echo "Elapsed hours: $hours"
+        echo "Battery start: ${start_level:-unknown}%"
+        echo "Battery now: ${cur_level:-unknown}%"
+        echo "Battery delta: $battery_delta%"
+        echo "Drain per hour: ${drain_per_hour:-unknown}%/hr"
+        echo
+        echo "Suspend delta:"
+        echo "- attempts: $attempts_delta"
+        echo "- failed: $failed_delta"
+        echo "- short: $short_delta"
+        echo
+        echo "Top wakeup source:"
+        echo "- baseline: ${start_top_name:-unknown} count=${start_top_count:-unknown}"
+        echo "- current: ${cur_top_name:-unknown} count=${cur_top_count:-unknown}"
+        echo
+        echo "Classification: $classification"
+        echo "Suspected cause: $suspected"
+        echo
+        echo "Guidance:"
+        case "$suspected" in
+            modem/radio) echo "- Check signal quality, 5G in weak signal, IMS/radio wakeups. Do not disable modem/IMS if calls matter." ;;
+            Wi-Fi/CNSS) echo "- Check Wi-Fi scanning, poor AP, Wi-Fi calling, router multicast/noise and CNSS wakeups." ;;
+            alarms/apps|Android*) echo "- Use Thanox/Hail/app notification cleanup for non-whitelist apps. Check app alarms." ;;
+            sensors|fingerprint*) echo "- Keep AOD, pickup, tap-to-wake and screen-off fingerprint disabled for overnight tests." ;;
+            *) echo "- Cause is unclear. Compare wakeup_sources, dmesg, batterystats, and app alarms." ;;
+        esac
+        echo "- Good target is under 1%/hr with calls and Clock still working."
+        echo
+        echo "Current idle score:"
+        cmd_idle_score
+    } > "$OVERNIGHT_FILE" 2>&1
+    chmod 0600 "$OVERNIGHT_FILE" 2>/dev/null
+    log "overnight report written: $OVERNIGHT_FILE"
+    cat "$OVERNIGHT_FILE"
 }
 
 cmd_logs() {
@@ -1118,6 +1577,46 @@ $MODULE_BACKUP_FILE_DOWNLOAD" || wrote="$MODULE_BACKUP_FILE_DOWNLOAD"
     fi
 }
 
+cmd_my_setup() {
+    load_config
+    ENABLED=1
+    PROFILE=ultra
+    NIGHT_SCHEDULE=1
+    NIGHT_START="${NIGHT_START:-23:00}"
+    NIGHT_END="${NIGHT_END:-07:00}"
+    AGGRESSIVE=1
+    SCANNING_TWEAKS=1
+    DISPLAY_IDLE_TWEAKS=1
+    DOZE_TUNING=1
+    ULTRA_IDLE=1
+    SCREEN_ON_SAVER=1
+    HAPTICS_OFF=1
+    DARK_MODE=1
+    DARK_WALLPAPER=1
+    EXPORT_APP_POLICY=1
+    MY_SETUP=1
+    SCREEN_ON_REFRESH_RATE=60
+    [ -n "$PROTECTED_PACKAGES" ] || PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
+    save_config
+    log "my setup enabled"
+    cmd_apply
+    echo
+    cmd_export_app_policy
+    echo
+    cmd_export_hail
+    echo
+    cmd_export_thanox
+    echo
+    cmd_export_thanox_rules
+    echo
+    cmd_notification_report
+    echo
+    cmd_export_backup
+    echo
+    echo "My Setup applied. KernelSU did not freeze, disable, suspend, or notification-block any package."
+    echo "Use Hail/Thanox manually with the exported files."
+}
+
 set_bool_config() {
     var="$1"
     value="$2"
@@ -1146,6 +1645,7 @@ set_bool_config() {
         dark-mode) DARK_MODE="$value" ;;
         dark-wallpaper) DARK_WALLPAPER="$value" ;;
         app-policy) EXPORT_APP_POLICY="$value" ;;
+        my-setup) MY_SETUP="$value" ;;
         *) echo "Unknown config: $var"; exit 2 ;;
     esac
     save_config
@@ -1176,6 +1676,9 @@ case "$1" in
     status) cmd_status ;;
     diagnose) cmd_diagnose ;;
     idle-score) cmd_idle_score ;;
+    safety-check) cmd_safety_check ;;
+    overnight-start) cmd_overnight_start ;;
+    overnight-report) cmd_overnight_report ;;
     set-night-schedule) cmd_set_night_schedule "$2" ;;
     set-night-window) cmd_set_night_window "$2" "$3" ;;
     pause-minutes) cmd_pause_minutes "$2" ;;
@@ -1192,6 +1695,7 @@ case "$1" in
     set-dark-mode) set_bool_config dark-mode "$2" ;;
     set-dark-wallpaper) set_bool_config dark-wallpaper "$2" ;;
     set-export-app-policy) set_bool_config app-policy "$2" ;;
+    set-my-setup) set_bool_config my-setup "$2" ;;
     set-refresh-rate) set_refresh_rate "$2" ;;
     protected-list) cmd_protected_list ;;
     protected-add) protected_add_pkg "$2" ;;
@@ -1199,10 +1703,14 @@ case "$1" in
     protected-reset) protected_reset ;;
     export-thanox) cmd_export_thanox ;;
     export-app-policy) cmd_export_app_policy ;;
+    export-hail) cmd_export_hail ;;
+    export-thanox-rules) cmd_export_thanox_rules ;;
+    notification-report) cmd_notification_report ;;
+    my-setup) cmd_my_setup ;;
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|status|diagnose|idle-score|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|logs|clear-logs}"
+        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|status|diagnose|idle-score|safety-check|overnight-start|overnight-report|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|export-hail|export-thanox-rules|notification-report|my-setup|logs|clear-logs}"
         exit 2
         ;;
 esac
