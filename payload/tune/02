@@ -1,0 +1,8 @@
+m haptic_feedback_enabled 0;; idle|ultra|night|*) apply;; esac; say "Profile $1 applied. Untouched: calls/SMS/Clock/IMS/modem/GMS/SystemUI/root."; }
+protected(){ case "$1" in list|"") cat "$W";; add) shift; for p in "$@";do grep -qx "$p" "$W" 2>/dev/null||echo "$p">>"$W";done;; remove) shift; for p in "$@";do grep -vx "$p" "$W">"$W.tmp";mv "$W.tmp" "$W";done;; reset) printf "%s\n" $DEF >"$W";; esac; }
+safety(){ say "Safe design: no package freezing/disabling, no appops sweep, no modem/IMS/telephony/GMS/SystemUI stop, no remount, no thermal/governor/wakelock writes."; say "Protected packages:"; cat "$W"; dumpsys alarm 2>/dev/null|grep -m1 -i "next alarm"; }
+overnight_start(){ date >"$S"; dumpsys battery|grep level >>"$S"; say "Baseline saved. Sleep 6-8h, then run overnight-report."; }
+overnight_report(){ say "Start:"; cat "$S" 2>/dev/null; say "Now:"; dumpsys battery|grep level; say "Run analyze-all for cause hints."; }
+wake(){ say "--- wakelocks ---"; cat /sys/kernel/debug/wakeup_sources 2>/dev/null|head -40||cat /d/wakeup_sources 2>/dev/null|head -40; }
+alarm(){ say "--- alarms ---"; dumpsys alarm 2>/dev/null|grep -Ei "wakeup|alarm|pending|package"|head -80; }
+jobs(){ say "--- job

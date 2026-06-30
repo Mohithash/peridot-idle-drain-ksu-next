@@ -1,6 +1,6 @@
 id=peridot_idle_drain
 name=Peridot Idle Drain Tweaks
-version=1.7.8
-versionCode=178
+version=1.8.0
+versionCode=180
 author=Mohithash
 description=KernelSU Next module with WebUI for Xiaomi peridot / VoltageOS idle-drain tuning. Repo: https://github.com/Mohithash/peridot-idle-drain-ksu-next

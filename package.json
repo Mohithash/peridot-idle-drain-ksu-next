@@ -1,7 +1,7 @@
 {
   "name": "peridot-idle-drain-ksu-next",
   "private": true,
-  "version": "1.7.8",
+  "version": "1.8.0",
   "description": "KernelSU Next WebUI build for Peridot Idle Drain Tweaks",
   "scripts": {
     "build:webui": "esbuild webroot-src/app.js --bundle --format=iife --target=es2017 --outfile=webroot/app.js --log-level=warning",

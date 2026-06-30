@@ -8,8 +8,9 @@ const root = path.resolve(__dirname, '..');
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const outDir = path.join(root, 'dist');
 const outPath = path.join(outDir, `peridot-idle-drain-ksu-next-v${version}.zip`);
+const chunkSize = 1200;
 
-const entries = [
+const baseEntries = [
   'module.prop',
   'config.conf',
   'service.sh',
@@ -19,6 +20,18 @@ const entries = [
   'scripts/tune.sh',
   'webroot/index.html'
 ];
+const payloadDir = path.join(root, 'payload', 'tune');
+fs.rmSync(path.join(root, 'payload'), { recursive: true, force: true });
+fs.mkdirSync(payloadDir, { recursive: true });
+const fullTune = fs.readFileSync(path.join(root, 'full', 'tune.full.sh'));
+const chunks = [];
+for (let i = 0; i < fullTune.length; i += chunkSize) {
+  const name = String(chunks.length).padStart(2, '0');
+  const rel = `payload/tune/${name}`;
+  fs.writeFileSync(path.join(root, rel), fullTune.subarray(i, i + chunkSize));
+  chunks.push(rel);
+}
+const entries = [...baseEntries, ...chunks];
 
 fs.mkdirSync(outDir, { recursive: true });
 if (fs.existsSync(outPath)) {
@@ -45,3 +58,6 @@ await new Promise((resolve, reject) => {
 });
 
 console.log(outPath);
+for (const entry of entries) {
+  console.log(`${entry}: ${fs.statSync(path.join(root, entry)).size}`);
+}

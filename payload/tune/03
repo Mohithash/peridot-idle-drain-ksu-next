@@ -1,0 +1,7 @@
+s ---"; dumpsys jobscheduler 2>/dev/null|grep -Ei "JOB|u0a|standby|ready|pending|sourcePackage"|head -100; }
+loc(){ say "--- location ---"; dumpsys location 2>/dev/null|grep -Ei "provider|request|package|uid|active"|head -80; }
+sens(){ say "--- sensors ---"; dumpsys sensorservice 2>/dev/null|head -100; }
+net(){ say "--- network ---"; dumpsys netstats 2>/dev/null|grep -Ei "iface|uid|mobile|wifi"|head -80; }
+idle(){ say "--- deviceidle ---"; dumpsys deviceidle 2>/dev/null|head -90; wake; }
+exports(){ mkdir -p "$D"; cp "$W" "$D/peridot_protected_packages.txt"; pm list packages -3 2>/dev/null|cut -d: -f2>"$D/peridot_user_apps.txt"; grep -vxFf "$D/peridot_protected_packages.txt" "$D/peridot_user_apps.txt" 2>/dev/null>"$D/peridot_hail_freeze_candidates.txt"; { echo "Thanox template: screen off -> restrict/freeze non-whitelist."; echo "Maps/payment: unfreeze on foreground, freeze after exit."; echo "Telegram: allow private messages; mute groups/channels/bots inside Telegram."; } >"$D/peridot_thanox_templates.txt"; say "Exports written to $D/peridot_*"; }
+backup(){ mkdir -p "$D"; { status; echo "--- protected ---"; cat "$W"; } >"$D/peridot_idle_restore_pack.txt"; say "$D/peridot_idle_resto

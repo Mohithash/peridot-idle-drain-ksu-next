@@ -1,0 +1,9 @@
+#!/system/bin/sh
+V=1.8.0; D=/sdcard/Download; S=/data/local/tmp/peridot_start.txt
+C=/data/local/tmp/peridot_idle.conf; W=/data/local/tmp/peridot_protected.txt
+DEF="com.android.dialer com.android.phone com.android.server.telecom com.android.providers.telephony com.android.contacts com.android.messaging com.google.android.apps.messaging com.android.deskclock com.google.android.deskclock com.google.android.gms com.google.android.gsf com.google.android.ims com.android.systemui me.weishu.kernelsu com.topjohnwu.magisk org.lsposed.manager org.telegram.messenger com.google.android.apps.maps"
+[ -f "$W" ]||printf "%s\n" $DEF >"$W"
+gp(){ settings get "$1" "$2" 2>/dev/null; }; sp(){ settings put "$1" "$2" "$3" >/dev/null 2>&1; }
+del(){ settings delete "$1" "$2" >/dev/null 2>&1; }; say(){ echo "$@"; }
+status(){ say "Peridot Idle v$V by Mohithash"; for x in "global wifi_scan_always_enabled" "global ble_scan_always_enabled" "global mobile_data_always_on" "secure nearby_scanning_enabled" "secure doze_enabled" "secure doze_always_on" "system haptic_feedback_enabled" "system peak_refresh_rate" "system min_refresh_rate"; do set -- $x; say "$2=$(gp $1 $2)"; done; }
+apply(){ sp global wifi_scan_always_
