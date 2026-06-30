@@ -9,8 +9,11 @@ THANOX_FILE_TMP="/data/local/tmp/peridot_thanox_whitelist.txt"
 THANOX_FILE_DOWNLOAD="/sdcard/Download/peridot_thanox_whitelist.txt"
 APP_POLICY_FILE_TMP="/data/local/tmp/peridot_app_policy.txt"
 APP_POLICY_FILE_DOWNLOAD="/sdcard/Download/peridot_app_policy.txt"
+MODULE_BACKUP_FILE_TMP="/data/local/tmp/peridot_idle_module_backup.txt"
+MODULE_BACKUP_FILE_DOWNLOAD="/sdcard/Download/peridot_idle_module_backup.txt"
 BLACK_WALLPAPER="/data/local/tmp/peridot_black_wallpaper.png"
-DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.android.systemui,me.weishu.kernelsu,com.topjohnwu.magisk,org.lsposed.manager"
+DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.google.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.google.android.euicc,com.android.systemui,com.android.settings,com.android.permissioncontroller,me.weishu.kernelsu,com.rifsxd.ksunext,com.topjohnwu.magisk,org.lsposed.manager"
+RECOMMENDED_OPTIONAL_PACKAGES="com.whatsapp,org.telegram.messenger,org.thunderdog.challegram,com.google.android.apps.authenticator2,com.google.android.calendar"
 
 ensure_files() {
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
@@ -20,6 +23,11 @@ ensure_files() {
     if [ ! -f "$CONFIG_FILE" ]; then
         {
             echo "ENABLED=1"
+            echo "PROFILE=idle"
+            echo "NIGHT_SCHEDULE=0"
+            echo "NIGHT_START=23:00"
+            echo "NIGHT_END=07:00"
+            echo "PAUSED_UNTIL=0"
             echo "AGGRESSIVE=0"
             echo "SCANNING_TWEAKS=1"
             echo "DISPLAY_IDLE_TWEAKS=1"
@@ -44,6 +52,11 @@ bool_or_zero() {
 load_config() {
     ensure_files
     ENABLED=1
+    PROFILE=idle
+    NIGHT_SCHEDULE=0
+    NIGHT_START=23:00
+    NIGHT_END=07:00
+    PAUSED_UNTIL=0
     AGGRESSIVE=0
     SCANNING_TWEAKS=1
     DISPLAY_IDLE_TWEAKS=1
@@ -59,6 +72,22 @@ load_config() {
     # shellcheck disable=SC1090
     . "$CONFIG_FILE" 2>/dev/null
     ENABLED="$(bool_or_zero "$ENABLED")"
+    case "$PROFILE" in
+        balanced|idle|ultra|night|screen) ;;
+        *) PROFILE=idle ;;
+    esac
+    NIGHT_SCHEDULE="$(bool_or_zero "$NIGHT_SCHEDULE")"
+    case "$NIGHT_START" in
+        [0-2][0-9]:[0-5][0-9]) ;;
+        *) NIGHT_START=23:00 ;;
+    esac
+    case "$NIGHT_END" in
+        [0-2][0-9]:[0-5][0-9]) ;;
+        *) NIGHT_END=07:00 ;;
+    esac
+    case "$PAUSED_UNTIL" in
+        *[!0-9]*|"") PAUSED_UNTIL=0 ;;
+    esac
     AGGRESSIVE="$(bool_or_zero "$AGGRESSIVE")"
     SCANNING_TWEAKS="$(bool_or_zero "$SCANNING_TWEAKS")"
     DISPLAY_IDLE_TWEAKS="$(bool_or_zero "$DISPLAY_IDLE_TWEAKS")"
@@ -79,6 +108,11 @@ load_config() {
 save_config() {
     {
         echo "ENABLED=$ENABLED"
+        echo "PROFILE=$PROFILE"
+        echo "NIGHT_SCHEDULE=$NIGHT_SCHEDULE"
+        echo "NIGHT_START=$NIGHT_START"
+        echo "NIGHT_END=$NIGHT_END"
+        echo "PAUSED_UNTIL=$PAUSED_UNTIL"
         echo "AGGRESSIVE=$AGGRESSIVE"
         echo "SCANNING_TWEAKS=$SCANNING_TWEAKS"
         echo "DISPLAY_IDLE_TWEAKS=$DISPLAY_IDLE_TWEAKS"
@@ -102,6 +136,37 @@ log() {
 
 have_cmd() {
     command -v "$1" >/dev/null 2>&1
+}
+
+now_epoch() {
+    date +%s 2>/dev/null || echo 0
+}
+
+time_to_minutes() {
+    hour="${1%:*}"
+    minute="${1#*:}"
+    echo $((10#$hour * 60 + 10#$minute))
+}
+
+inside_night_window() {
+    start="$(time_to_minutes "$NIGHT_START")"
+    end="$(time_to_minutes "$NIGHT_END")"
+    now="$(date +%H:%M 2>/dev/null)"
+    case "$now" in
+        [0-2][0-9]:[0-5][0-9]) ;;
+        *) return 1 ;;
+    esac
+    cur="$(time_to_minutes "$now")"
+    if [ "$start" -le "$end" ]; then
+        [ "$cur" -ge "$start" ] && [ "$cur" -lt "$end" ]
+    else
+        [ "$cur" -ge "$start" ] || [ "$cur" -lt "$end" ]
+    fi
+}
+
+is_paused() {
+    now="$(now_epoch)"
+    [ "$PAUSED_UNTIL" -gt "$now" ] 2>/dev/null
 }
 
 settings_get() {
@@ -359,6 +424,21 @@ protected_print_lines() {
     IFS="$old_ifs"
 }
 
+installed_user_packages() {
+    pm list packages -3 2>/dev/null | sed 's/^package://'
+}
+
+recommended_optional_print_lines() {
+    old_ifs="$IFS"
+    IFS=,
+    for item in $RECOMMENDED_OPTIONAL_PACKAGES; do
+        IFS="$old_ifs"
+        [ -n "$item" ] && echo "$item"
+        IFS=,
+    done
+    IFS="$old_ifs"
+}
+
 protected_add_pkg() {
     pkg="$1"
     load_config
@@ -466,12 +546,22 @@ write_app_policy() {
         protected_print_lines | sed 's/^/- /'
         echo
         echo "Recommended apps to add if you use them:"
-        echo "- com.whatsapp"
-        echo "- org.telegram.messenger"
-        echo "- org.thunderdog.challegram"
+        recommended_optional_print_lines | sed 's/^/- /'
         echo "- your banking app only if you need alerts"
-        echo "- your authenticator app"
+        echo "- your authenticator app if not listed above"
         echo "- your calendar/reminder app if separate from Clock"
+        echo
+        echo "Installed user apps detected by pm list packages -3:"
+        installed_user_packages | sed 's/^/- /'
+        echo
+        echo "Freeze candidates among installed user apps:"
+        installed_user_packages | while read -r pkg; do
+            [ -n "$pkg" ] || continue
+            if protected_contains "$pkg"; then
+                continue
+            fi
+            echo "- $pkg"
+        done
         echo
         echo "Thanox policy:"
         echo "1. Add every protected package above to Thanox whitelist / do-not-freeze."
@@ -555,8 +645,127 @@ print_setting() {
     printf '%s %-42s %s\n' "$1" "$2" "$(settings_get "$1" "$2")"
 }
 
+valid_profile() {
+    case "$1" in
+        balanced|idle|ultra|night|screen) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+profile_list() {
+    echo "balanced"
+    echo "idle"
+    echo "ultra"
+    echo "night"
+    echo "screen"
+}
+
+set_profile_values() {
+    profile="$1"
+    valid_profile "$profile" || return 1
+    ENABLED=1
+    PROFILE="$profile"
+    case "$profile" in
+        balanced)
+            AGGRESSIVE=0
+            ULTRA_IDLE=0
+            SCANNING_TWEAKS=1
+            DISPLAY_IDLE_TWEAKS=0
+            DOZE_TUNING=1
+            SCREEN_ON_SAVER=0
+            HAPTICS_OFF=0
+            DARK_MODE=0
+            DARK_WALLPAPER=0
+            SCREEN_ON_REFRESH_RATE=120
+            ;;
+        idle)
+            AGGRESSIVE=0
+            ULTRA_IDLE=0
+            SCANNING_TWEAKS=1
+            DISPLAY_IDLE_TWEAKS=1
+            DOZE_TUNING=1
+            SCREEN_ON_SAVER=0
+            HAPTICS_OFF=0
+            DARK_MODE=0
+            DARK_WALLPAPER=0
+            SCREEN_ON_REFRESH_RATE=60
+            ;;
+        ultra|night)
+            AGGRESSIVE=1
+            ULTRA_IDLE=1
+            SCANNING_TWEAKS=1
+            DISPLAY_IDLE_TWEAKS=1
+            DOZE_TUNING=1
+            SCREEN_ON_SAVER=1
+            HAPTICS_OFF=1
+            DARK_MODE=1
+            DARK_WALLPAPER=1
+            SCREEN_ON_REFRESH_RATE=60
+            ;;
+        screen)
+            AGGRESSIVE=0
+            ULTRA_IDLE=0
+            SCANNING_TWEAKS=1
+            DISPLAY_IDLE_TWEAKS=0
+            DOZE_TUNING=0
+            SCREEN_ON_SAVER=1
+            HAPTICS_OFF=1
+            DARK_MODE=1
+            DARK_WALLPAPER=1
+            SCREEN_ON_REFRESH_RATE=60
+            ;;
+    esac
+}
+
+cmd_set_profile() {
+    profile="$1"
+    load_config
+    if ! valid_profile "$profile"; then
+        echo "Usage: $0 set-profile balanced|idle|ultra|night|screen"
+        exit 2
+    fi
+    PROFILE="$profile"
+    save_config
+    log "config: profile=$profile"
+    echo "profile set to $profile"
+}
+
+cmd_apply_profile() {
+    profile="$1"
+    load_config
+    [ -n "$profile" ] || profile="$PROFILE"
+    if ! set_profile_values "$profile"; then
+        echo "Usage: $0 apply-profile [balanced|idle|ultra|night|screen]"
+        exit 2
+    fi
+    save_config
+    log "profile values applied: $profile"
+    cmd_apply
+}
+
+cmd_apply_boot() {
+    load_config
+    if is_paused; then
+        log "boot apply skipped: paused until $PAUSED_UNTIL"
+        echo "Peridot Idle Drain Tweaks: paused until $PAUSED_UNTIL"
+        exit 0
+    fi
+    if [ "$NIGHT_SCHEDULE" = "1" ] && inside_night_window; then
+        log "boot apply: night schedule active"
+        cmd_apply_profile night
+    else
+        log "boot apply: profile=$PROFILE"
+        cmd_apply_profile "$PROFILE"
+    fi
+}
+
 cmd_apply() {
     load_config
+    if is_paused; then
+        log "apply skipped: paused until $PAUSED_UNTIL"
+        echo "Peridot Idle Drain Tweaks: paused until $PAUSED_UNTIL"
+        exit 0
+    fi
     if [ "$ENABLED" != "1" ]; then
         log "apply skipped: module disabled"
         echo "Peridot Idle Drain Tweaks: disabled"
@@ -605,6 +814,10 @@ cmd_status() {
     load_config
     echo "Peridot Idle Drain Tweaks"
     echo "Enabled: $ENABLED"
+    echo "Profile: $PROFILE"
+    echo "Night schedule: $NIGHT_SCHEDULE"
+    echo "Night window: $NIGHT_START-$NIGHT_END"
+    echo "Paused until: $PAUSED_UNTIL"
     echo "Aggressive: $AGGRESSIVE"
     echo "Scanning tweaks: $SCANNING_TWEAKS"
     echo "Display idle tweaks: $DISPLAY_IDLE_TWEAKS"
@@ -734,6 +947,177 @@ cmd_clear_logs() {
     echo "Logs cleared."
 }
 
+cmd_set_night_schedule() {
+    load_config
+    case "$1" in
+        0|1) NIGHT_SCHEDULE="$1" ;;
+        *) echo "Usage: $0 set-night-schedule 0|1"; exit 2 ;;
+    esac
+    save_config
+    log "config: night-schedule=$NIGHT_SCHEDULE"
+    echo "night schedule set to $NIGHT_SCHEDULE"
+}
+
+cmd_set_night_window() {
+    load_config
+    case "$1" in
+        [0-2][0-9]:[0-5][0-9]) ;;
+        *) echo "Usage: $0 set-night-window HH:MM HH:MM"; exit 2 ;;
+    esac
+    case "$2" in
+        [0-2][0-9]:[0-5][0-9]) ;;
+        *) echo "Usage: $0 set-night-window HH:MM HH:MM"; exit 2 ;;
+    esac
+    NIGHT_START="$1"
+    NIGHT_END="$2"
+    save_config
+    log "config: night-window=$NIGHT_START-$NIGHT_END"
+    echo "night window set to $NIGHT_START-$NIGHT_END"
+}
+
+cmd_pause_minutes() {
+    load_config
+    minutes="$1"
+    case "$minutes" in
+        *[!0-9]*|"") echo "Usage: $0 pause-minutes <minutes>"; exit 2 ;;
+    esac
+    now="$(now_epoch)"
+    PAUSED_UNTIL=$((now + minutes * 60))
+    save_config
+    log "paused for $minutes minutes until $PAUSED_UNTIL"
+    echo "paused until epoch $PAUSED_UNTIL"
+}
+
+cmd_resume() {
+    load_config
+    PAUSED_UNTIL=0
+    save_config
+    log "resumed"
+    echo "module resumed"
+}
+
+read_suspend_stats() {
+    if [ -r /sys/kernel/debug/suspend_stats ]; then
+        cat /sys/kernel/debug/suspend_stats
+    elif [ -r /d/suspend_stats ]; then
+        cat /d/suspend_stats
+    fi
+}
+
+read_wakeup_sources() {
+    if [ -r /sys/kernel/debug/wakeup_sources ]; then
+        cat /sys/kernel/debug/wakeup_sources
+    elif [ -r /d/wakeup_sources ]; then
+        cat /d/wakeup_sources
+    fi
+}
+
+suspect_from_name() {
+    case "$1" in
+        *qcom_rx*|*IPA*|*rmnet*|*modem*|*qmi*|*smd*) echo "modem/radio" ;;
+        *wlan*|*cnss*|*wifi*) echo "Wi-Fi/CNSS" ;;
+        *alarm*|*timerfd*) echo "alarms/apps" ;;
+        *sensor*|*ssc*|*sns*) echo "sensors" ;;
+        *fingerprint*|*fp*|*touch*) echo "fingerprint/touch" ;;
+        *PowerManagerService*) echo "Android wakelocks/apps" ;;
+        *) echo "unknown/kernel" ;;
+    esac
+}
+
+cmd_idle_score() {
+    stats="$(read_suspend_stats)"
+    attempts="$(printf '%s\n' "$stats" | awk 'tolower($1) ~ /attempt/ { print $NF; exit }' 2>/dev/null)"
+    success="$(printf '%s\n' "$stats" | awk 'tolower($1) ~ /success/ { print $NF; exit }' 2>/dev/null)"
+    failed="$(printf '%s\n' "$stats" | awk 'tolower($1) ~ /fail/ { print $NF; exit }' 2>/dev/null)"
+    short="$(printf '%s\n' "$stats" | awk 'tolower($1) ~ /short/ { print $NF; exit }' 2>/dev/null)"
+    [ -n "$attempts" ] || attempts=0
+    [ -n "$success" ] || success=0
+    [ -n "$failed" ] || failed=0
+    [ -n "$short" ] || short=0
+    if [ "$attempts" -eq 0 ] 2>/dev/null; then
+        attempts=$((success + failed + short))
+    fi
+
+    top_line="$(read_wakeup_sources | tail -n +2 2>/dev/null | sort -k7 -nr 2>/dev/null | head -n 1)"
+    top_name="$(printf '%s\n' "$top_line" | awk '{print $1}' 2>/dev/null)"
+    [ -n "$top_name" ] || top_name="unavailable"
+    suspect="$(suspect_from_name "$top_name")"
+
+    score=100
+    classification="good"
+    if [ "$attempts" -gt 0 ] 2>/dev/null; then
+        failed_pct=$((failed * 100 / attempts))
+        short_pct=$((short * 100 / attempts))
+        score=$((100 - failed_pct - short_pct / 2))
+        [ "$score" -lt 0 ] && score=0
+        if [ "$score" -lt 50 ]; then
+            classification="bad"
+        elif [ "$score" -lt 75 ]; then
+            classification="warning"
+        else
+            classification="good"
+        fi
+    else
+        classification="warning"
+    fi
+
+    {
+        echo "Idle score: $score/100"
+        echo "Classification: $classification"
+        echo "Suspend attempts: $attempts"
+        echo "Successful/long-ish suspends: $success"
+        echo "Failed suspends: $failed"
+        echo "Short suspends: $short"
+        echo "Top suspected source: $top_name ($suspect)"
+        echo
+        echo "Interpretation:"
+        case "$classification" in
+            good) echo "- Suspend stats look acceptable from this simple heuristic." ;;
+            warning) echo "- Some suspend failures/short wakes are present. Check wakeup_sources and app alarms." ;;
+            bad) echo "- Suspend is likely unhealthy. Check modem/Wi-Fi/app/sensor wakeups before adding more tweaks." ;;
+        esac
+        echo "- This is a heuristic score, not a replacement for overnight drain testing."
+    }
+}
+
+write_module_backup() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain Module Backup"
+        date
+        echo
+        echo "[config.conf]"
+        cat "$CONFIG_FILE" 2>/dev/null
+        echo
+        echo "[protected packages]"
+        protected_print_lines
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_backup() {
+    load_config
+    mkdir -p "$(dirname "$MODULE_BACKUP_FILE_TMP")" 2>/dev/null
+    wrote=""
+    if write_module_backup "$MODULE_BACKUP_FILE_TMP"; then
+        chmod 0644 "$MODULE_BACKUP_FILE_TMP" 2>/dev/null
+        wrote="$MODULE_BACKUP_FILE_TMP"
+    fi
+    if [ -d /sdcard/Download ] || mkdir -p /sdcard/Download 2>/dev/null; then
+        if write_module_backup "$MODULE_BACKUP_FILE_DOWNLOAD"; then
+            chmod 0644 "$MODULE_BACKUP_FILE_DOWNLOAD" 2>/dev/null
+            [ -n "$wrote" ] && wrote="$wrote
+$MODULE_BACKUP_FILE_DOWNLOAD" || wrote="$MODULE_BACKUP_FILE_DOWNLOAD"
+        fi
+    fi
+    log "module backup exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported module backup:"
+        echo "$wrote"
+    else
+        echo "Could not write module backup. Try again after storage is mounted."
+    fi
+}
+
 set_bool_config() {
     var="$1"
     value="$2"
@@ -783,10 +1167,20 @@ set_refresh_rate() {
 }
 
 case "$1" in
+    boot) cmd_apply_boot ;;
     apply) cmd_apply ;;
+    profile-list) profile_list ;;
+    set-profile) cmd_set_profile "$2" ;;
+    apply-profile) cmd_apply_profile "$2" ;;
     restore) cmd_restore ;;
     status) cmd_status ;;
     diagnose) cmd_diagnose ;;
+    idle-score) cmd_idle_score ;;
+    set-night-schedule) cmd_set_night_schedule "$2" ;;
+    set-night-window) cmd_set_night_window "$2" "$3" ;;
+    pause-minutes) cmd_pause_minutes "$2" ;;
+    resume) cmd_resume ;;
+    export-backup) cmd_export_backup ;;
     set-enabled) set_bool_config enabled "$2" ;;
     set-aggressive) set_bool_config aggressive "$2" ;;
     set-scanning) set_bool_config scanning "$2" ;;
@@ -808,7 +1202,7 @@ case "$1" in
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {apply|restore|status|diagnose|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|logs|clear-logs}"
+        echo "Usage: $0 {boot|apply|profile-list|set-profile profile|apply-profile [profile]|restore|status|diagnose|idle-score|set-night-schedule 0|1|set-night-window HH:MM HH:MM|pause-minutes n|resume|export-backup|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|set-screen-saver 0|1|set-haptics 0|1|set-dark-mode 0|1|set-dark-wallpaper 0|1|set-refresh-rate 60|90|120|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|export-app-policy|logs|clear-logs}"
         exit 2
         ;;
 esac

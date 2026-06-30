@@ -21,6 +21,11 @@ Default configuration:
 
 ```txt
 ENABLED=1
+PROFILE=idle
+NIGHT_SCHEDULE=0
+NIGHT_START=23:00
+NIGHT_END=07:00
+PAUSED_UNTIL=0
 AGGRESSIVE=0
 SCANNING_TWEAKS=1
 DISPLAY_IDLE_TWEAKS=1
@@ -33,6 +38,25 @@ DARK_WALLPAPER=0
 EXPORT_APP_POLICY=1
 SCREEN_ON_REFRESH_RATE=60
 PROTECTED_PACKAGES=com.android.dialer,com.android.phone,com.android.server.telecom,...
+```
+
+## Profiles and Schedule
+
+Version 1.4.0 adds profile presets:
+
+- `balanced`: scanning and Doze tuning, keeps display convenience and 120 Hz
+- `idle`: default idle saver, scanning plus display idle plus Doze
+- `ultra`: strongest safe settings, 60 Hz, dark mode, haptics off, Ultra Idle on
+- `night`: same safe aggressive direction as Ultra, intended for overnight use
+- `screen`: screen-on saver, 60 Hz, dark mode, haptics off, without forcing display idle/Doze
+
+Night schedule can apply the `night` profile automatically during a chosen window, for example `23:00-07:00`. Calls, Clock/alarm, telephony, GMS/IMS, SystemUI, root and LSPosed remain protected by design.
+
+You can pause the module temporarily for gaming, navigation, banking, camera, or any situation where you want normal behavior:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh pause-minutes 30'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh resume'
 ```
 
 ## Compatibility
@@ -214,7 +238,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.3.0.zip
+dist/peridot-idle-drain-ksu-next-v1.4.0.zip
 ```
 
 Steps:
@@ -230,6 +254,9 @@ Steps:
 The WebUI provides:
 
 - Enable / disable module
+- Select and apply profiles
+- Configure night schedule and night window
+- Pause/resume tweaks temporarily
 - Enable / disable aggressive mode
 - Enable / disable scanning tweaks
 - Enable / disable display idle tweaks
@@ -241,6 +268,8 @@ The WebUI provides:
 - Enable / disable dark wallpaper
 - Apply now
 - Diagnose
+- Idle score
+- Export module backup
 - Restore backed-up settings
 - View logs
 - Clear logs
@@ -263,6 +292,28 @@ Apply tweaks:
 
 ```sh
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh apply'
+```
+
+Profiles:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh profile-list'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-profile ultra'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh apply-profile ultra'
+```
+
+Night schedule:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-night-schedule 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-night-window 23:00 07:00'
+```
+
+Pause and resume:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh pause-minutes 30'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh resume'
 ```
 
 Restore backed-up settings:
@@ -349,6 +400,27 @@ Collect a read-only diagnosis report:
 
 ```sh
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh diagnose'
+```
+
+Generate a simple idle score:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh idle-score'
+```
+
+The score reads suspend and wakeup-source diagnostics when available and classifies the current state as `good`, `warning`, or `bad`. It is only a heuristic; overnight drain testing is still the real proof.
+
+Export module config and protected package backup:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-backup'
+```
+
+Backup paths:
+
+```txt
+/data/local/tmp/peridot_idle_module_backup.txt
+/sdcard/Download/peridot_idle_module_backup.txt
 ```
 
 View or clear logs:

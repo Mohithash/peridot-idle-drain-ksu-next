@@ -113,6 +113,15 @@
       color: var(--text);
       font: inherit;
     }
+    input[type="time"], input[type="number"] {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #0b0d0f;
+      color: var(--text);
+      font: inherit;
+    }
     select {
       min-height: 44px;
       border: 1px solid var(--line);
@@ -177,6 +186,46 @@
     <p>KernelSU Next controls for conservative idle-drain tuning.</p>
 
     <div id="apiError" class="error">KernelSU WebUI API unavailable. Open this page from KernelSU Next module WebUI.</div>
+
+    <section>
+      <div class="row">
+        <div class="label">
+          <strong>Profile</strong>
+          <span>Choose a safe preset for daily use, overnight idle, or screen-on saving.</span>
+        </div>
+        <select id="profile">
+          <option value="balanced">Balanced</option>
+          <option value="idle">Idle</option>
+          <option value="ultra">Ultra</option>
+          <option value="night">Night</option>
+          <option value="screen">Screen</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Night schedule</strong>
+          <span>Use Night profile during the selected window. Calls and Clock stay protected.</span>
+        </div>
+        <label class="switch">
+          <input id="nightSchedule" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="row">
+        <div class="label">
+          <strong>Night window</strong>
+          <span>Applies after boot when current time is inside this range.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <input id="nightStart" type="time">
+          <input id="nightEnd" type="time">
+        </div>
+      </div>
+      <div class="actions">
+        <button id="applyProfile">Apply profile</button>
+        <button id="saveNightWindow">Save night window</button>
+      </div>
+    </section>
 
     <section>
       <div class="row">
@@ -296,6 +345,10 @@
       <div class="actions">
         <button class="primary" id="apply">Apply now</button>
         <button id="diagnose">Diagnose</button>
+        <button id="idleScore">Idle score</button>
+        <button id="exportBackup">Export backup</button>
+        <button id="pause30">Pause 30m</button>
+        <button id="resume">Resume</button>
         <button id="restore">Restore</button>
         <button id="viewLogs">View logs</button>
         <button class="danger" id="clearLogs">Clear logs</button>
@@ -326,6 +379,10 @@
     const output = document.getElementById('output');
     const apiError = document.getElementById('apiError');
     const enabled = document.getElementById('enabled');
+    const profile = document.getElementById('profile');
+    const nightSchedule = document.getElementById('nightSchedule');
+    const nightStart = document.getElementById('nightStart');
+    const nightEnd = document.getElementById('nightEnd');
     const aggressive = document.getElementById('aggressive');
     const scanning = document.getElementById('scanning');
     const display = document.getElementById('display');
@@ -368,6 +425,14 @@
         const text = await run('status');
         show(text);
         enabled.checked = /Enabled:\s*1/.test(text);
+        const profileMatch = text.match(/Profile:\s*(balanced|idle|ultra|night|screen)/);
+        if (profileMatch) profile.value = profileMatch[1];
+        nightSchedule.checked = /Night schedule:\s*1/.test(text);
+        const nightMatch = text.match(/Night window:\s*([0-2][0-9]:[0-5][0-9])-([0-2][0-9]:[0-5][0-9])/);
+        if (nightMatch) {
+          nightStart.value = nightMatch[1];
+          nightEnd.value = nightMatch[2];
+        }
         aggressive.checked = /Aggressive:\s*1/.test(text);
         scanning.checked = /Scanning tweaks:\s*1/.test(text);
         display.checked = /Display idle tweaks:\s*1/.test(text);
@@ -392,6 +457,16 @@
 
     enabled.addEventListener('change', async () => {
       show(await run(`set-enabled ${enabled.checked ? 1 : 0}`));
+      await refresh();
+    });
+
+    profile.addEventListener('change', async () => {
+      show(await run(`set-profile ${profile.value}`));
+      await refresh();
+    });
+
+    nightSchedule.addEventListener('change', async () => {
+      show(await run(`set-night-schedule ${nightSchedule.checked ? 1 : 0}`));
       await refresh();
     });
 
@@ -450,8 +525,40 @@
       await refresh();
     });
 
+    document.getElementById('applyProfile').addEventListener('click', async () => {
+      show(await run(`apply-profile ${profile.value}`));
+      await refresh();
+    });
+
+    document.getElementById('saveNightWindow').addEventListener('click', async () => {
+      if (!nightStart.value || !nightEnd.value) {
+        show('Select both night start and end times.');
+        return;
+      }
+      show(await run(`set-night-window ${nightStart.value} ${nightEnd.value}`));
+      await refresh();
+    });
+
     document.getElementById('diagnose').addEventListener('click', async () => {
       show(await run('diagnose'));
+    });
+
+    document.getElementById('idleScore').addEventListener('click', async () => {
+      show(await run('idle-score'));
+    });
+
+    document.getElementById('exportBackup').addEventListener('click', async () => {
+      show(await run('export-backup'));
+    });
+
+    document.getElementById('pause30').addEventListener('click', async () => {
+      show(await run('pause-minutes 30'));
+      await refresh();
+    });
+
+    document.getElementById('resume').addEventListener('click', async () => {
+      show(await run('resume'));
+      await refresh();
     });
 
     document.getElementById('restore').addEventListener('click', async () => {

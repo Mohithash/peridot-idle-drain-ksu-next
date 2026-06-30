@@ -12,4 +12,4 @@ done
 
 sleep 20
 
-sh "$MODDIR/scripts/tune.sh" apply
+sh "$MODDIR/scripts/tune.sh" boot
