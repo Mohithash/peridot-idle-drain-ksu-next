@@ -1,0 +1,14 @@
+# Local editor/OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Temporary logs/build scratch
+*.log
+tmp/
+build/
+
+# Keep release ZIPs tracked intentionally.
+# The dist ZIP is the installable KernelSU Next artifact for GitHub releases.
+!../dist/*.zip

@@ -1,0 +1,6 @@
+id=peridot_idle_drain
+name=Peridot Idle Drain Tweaks
+version=1.0.0
+versionCode=100
+author=Mohithash + Codex helper
+description=KernelSU Next module with WebUI for conservative Xiaomi peridot idle-drain tuning.
