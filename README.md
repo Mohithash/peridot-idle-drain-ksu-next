@@ -25,6 +25,8 @@ AGGRESSIVE=0
 SCANNING_TWEAKS=1
 DISPLAY_IDLE_TWEAKS=1
 DOZE_TUNING=1
+ULTRA_IDLE=0
+PROTECTED_PACKAGES=com.android.dialer,com.android.phone,com.android.server.telecom,...
 ```
 
 ## Compatibility
@@ -83,6 +85,55 @@ Aggressive mode additionally changes discovery/assistant/voice-interaction style
 
 Aggressive mode is disabled by default.
 
+## Ultra Idle Mode
+
+Version 1.2.0 adds an optional Ultra Idle profile for users who care mainly about:
+
+- incoming/outgoing calls
+- SMS/telephony basics
+- Clock/alarm reliability
+- root/KernelSU/LSPosed availability
+- lowest possible idle drain from settings-level tuning
+
+Ultra mode automatically enables the existing scanning, display-idle, Doze, and aggressive categories. It also enables Android-level app standby/restriction/freezer toggles where the ROM exposes them through settings. It does not force-stop, disable, or freeze any package directly.
+
+Ultra mode may reduce convenience features such as location background behavior, Bluetooth background behavior, notification badges, lock-screen notification display, haptics, and screen rotation settings if those keys exist on the ROM. It is intended for users who use Thanox Pro, App Manager, or another app-control tool to decide which apps remain alive.
+
+Calls and Clock should remain safe because the default protected list includes common telephony, Telecom, Dialer, telephony provider, Clock, GMS/GSF/IMS, SystemUI, KernelSU/Magisk, and LSPosed packages. Still, package names vary by ROM, so verify your installed Clock, SMS, and dialer package names.
+
+## Protected Packages and Thanox
+
+The module keeps a protected package list for Thanox guidance. It does not edit Thanox databases because that would be fragile across Thanox versions.
+
+Default protected packages include:
+
+- `com.android.dialer`
+- `com.android.phone`
+- `com.android.server.telecom`
+- `com.android.providers.telephony`
+- `com.android.contacts`
+- `com.android.messaging`
+- `com.google.android.apps.messaging`
+- `com.android.deskclock`
+- `com.google.android.deskclock`
+- `com.google.android.gms`
+- `com.google.android.gsf`
+- `com.google.android.ims`
+- `com.android.systemui`
+- `me.weishu.kernelsu`
+- `com.topjohnwu.magisk`
+- `org.lsposed.manager`
+
+Add your own must-stay-awake apps, for example WhatsApp or Telegram, before making Thanox aggressively freeze apps after screen off.
+
+Suggested Thanox concept:
+
+- whitelist the protected packages
+- whitelist any messenger that must notify instantly
+- restrict background start/wakeup for all other user apps after screen off
+- freeze or hibernate noisy apps such as shopping, payment, social, video, or food apps after screen off/exit
+- do not freeze Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, KernelSU, Magisk, or LSPosed
+
 ## What It Does Not Touch
 
 This module intentionally does not:
@@ -106,7 +157,7 @@ It is a settings-level idle tuning module, not a kernel undervolt, debloat, ther
 Install the release ZIP from KernelSU Next:
 
 ```txt
-dist/peridot-idle-drain-ksu-next-v1.1.0.zip
+dist/peridot-idle-drain-ksu-next-v1.2.0.zip
 ```
 
 Steps:
@@ -170,6 +221,35 @@ Enable or disable aggressive mode:
 ```sh
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-aggressive 1'
 su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-aggressive 0'
+```
+
+Enable or disable Ultra Idle mode:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-ultra 1'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh set-ultra 0'
+```
+
+Show or edit protected packages:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-list'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-add com.whatsapp'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-remove com.example.app'
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh protected-reset'
+```
+
+Export the Thanox helper file:
+
+```sh
+su -c 'sh /data/adb/modules/peridot_idle_drain/scripts/tune.sh export-thanox'
+```
+
+The helper is written to:
+
+```txt
+/data/local/tmp/peridot_thanox_whitelist.txt
+/sdcard/Download/peridot_thanox_whitelist.txt
 ```
 
 Enable or disable tweak categories:

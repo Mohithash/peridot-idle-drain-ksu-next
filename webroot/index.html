@@ -98,6 +98,21 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
     }
+    .package-tools {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    input[type="text"] {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #0b0d0f;
+      color: var(--text);
+      font: inherit;
+    }
     button {
       min-height: 44px;
       border: 1px solid var(--line);
@@ -143,6 +158,7 @@
     @media (max-width: 520px) {
       main { padding: 16px; }
       .actions { grid-template-columns: 1fr; }
+      .package-tools { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -204,6 +220,16 @@
           <span class="slider"></span>
         </label>
       </div>
+      <div class="row">
+        <div class="label">
+          <strong>Ultra idle</strong>
+          <span>Most aggressive safe profile. Keeps calls, Clock, GMS, SystemUI and root protected.</span>
+        </div>
+        <label class="switch">
+          <input id="ultra" type="checkbox">
+          <span class="slider"></span>
+        </label>
+      </div>
     </section>
 
     <section>
@@ -216,6 +242,23 @@
       </div>
       <pre id="output">Loading status...</pre>
     </section>
+
+    <section>
+      <div class="label">
+        <strong>Protected packages for Thanox</strong>
+        <span>Add apps that must stay alive, then export the helper file and mirror the list in Thanox.</span>
+      </div>
+      <div class="package-tools">
+        <input id="packageName" type="text" placeholder="com.example.app" autocomplete="off" spellcheck="false">
+        <button id="addPackage">Add</button>
+        <button id="removePackage">Remove</button>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button id="listPackages">Show protected</button>
+        <button id="resetPackages">Reset defaults</button>
+        <button id="exportThanox">Export Thanox helper</button>
+      </div>
+    </section>
   </main>
 
   <script type="module">
@@ -226,6 +269,8 @@
     const scanning = document.getElementById('scanning');
     const display = document.getElementById('display');
     const doze = document.getElementById('doze');
+    const ultra = document.getElementById('ultra');
+    const packageName = document.getElementById('packageName');
     const tune = '/data/adb/modules/peridot_idle_drain/scripts/tune.sh';
     let execFn = null;
 
@@ -261,9 +306,16 @@
         scanning.checked = /Scanning tweaks:\s*1/.test(text);
         display.checked = /Display idle tweaks:\s*1/.test(text);
         doze.checked = /Doze tuning:\s*1/.test(text);
+        ultra.checked = /Ultra idle:\s*1/.test(text);
       } catch (error) {
         show(String(error.message || error));
       }
+    }
+
+    function validPackageName(pkg) {
+      return /^[A-Za-z0-9_][A-Za-z0-9._-]*\.[A-Za-z0-9._-]+$/.test(pkg) &&
+        !pkg.includes('..') &&
+        !pkg.endsWith('.');
     }
 
     enabled.addEventListener('change', async () => {
@@ -291,6 +343,11 @@
       await refresh();
     });
 
+    ultra.addEventListener('change', async () => {
+      show(await run(`set-ultra ${ultra.checked ? 1 : 0}`));
+      await refresh();
+    });
+
     document.getElementById('apply').addEventListener('click', async () => {
       show(await run('apply'));
       await refresh();
@@ -310,6 +367,49 @@
 
     document.getElementById('clearLogs').addEventListener('click', async () => {
       show(await run('clear-logs'));
+    });
+
+    document.getElementById('listPackages').addEventListener('click', async () => {
+      show(await run('protected-list'));
+    });
+
+    document.getElementById('addPackage').addEventListener('click', async () => {
+      const pkg = packageName.value.trim();
+      if (!pkg) {
+        show('Enter a package name first.');
+        return;
+      }
+      if (!validPackageName(pkg)) {
+        show('Invalid package name.');
+        return;
+      }
+      show(await run(`protected-add ${pkg}`));
+      packageName.value = '';
+      await refresh();
+    });
+
+    document.getElementById('removePackage').addEventListener('click', async () => {
+      const pkg = packageName.value.trim();
+      if (!pkg) {
+        show('Enter a package name first.');
+        return;
+      }
+      if (!validPackageName(pkg)) {
+        show('Invalid package name.');
+        return;
+      }
+      show(await run(`protected-remove ${pkg}`));
+      packageName.value = '';
+      await refresh();
+    });
+
+    document.getElementById('resetPackages').addEventListener('click', async () => {
+      show(await run('protected-reset'));
+      await refresh();
+    });
+
+    document.getElementById('exportThanox').addEventListener('click', async () => {
+      show(await run('export-thanox'));
     });
 
     await loadApi();

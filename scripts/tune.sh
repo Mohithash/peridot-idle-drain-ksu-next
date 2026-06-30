@@ -5,6 +5,9 @@ CONFIG_FILE="$MODDIR/config.conf"
 LOG_FILE="/data/local/tmp/peridot_idle_drain.log"
 BACKUP_FILE="/data/local/tmp/peridot_idle_drain_backup.txt"
 DIAG_FILE="/data/local/tmp/peridot_idle_drain_diagnose.txt"
+THANOX_FILE_TMP="/data/local/tmp/peridot_thanox_whitelist.txt"
+THANOX_FILE_DOWNLOAD="/sdcard/Download/peridot_thanox_whitelist.txt"
+DEFAULT_PROTECTED_PACKAGES="com.android.dialer,com.android.phone,com.android.server.telecom,com.android.providers.telephony,com.android.contacts,com.android.messaging,com.google.android.apps.messaging,com.android.deskclock,com.google.android.deskclock,com.google.android.gms,com.google.android.gsf,com.google.android.ims,com.android.systemui,me.weishu.kernelsu,com.topjohnwu.magisk,org.lsposed.manager"
 
 ensure_files() {
     mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null
@@ -18,6 +21,8 @@ ensure_files() {
             echo "SCANNING_TWEAKS=1"
             echo "DISPLAY_IDLE_TWEAKS=1"
             echo "DOZE_TUNING=1"
+            echo "ULTRA_IDLE=0"
+            echo "PROTECTED_PACKAGES=$DEFAULT_PROTECTED_PACKAGES"
         } > "$CONFIG_FILE"
         chmod 0644 "$CONFIG_FILE" 2>/dev/null
     fi
@@ -34,6 +39,8 @@ load_config() {
     SCANNING_TWEAKS=1
     DISPLAY_IDLE_TWEAKS=1
     DOZE_TUNING=1
+    ULTRA_IDLE=0
+    PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
     # shellcheck disable=SC1090
     . "$CONFIG_FILE" 2>/dev/null
     ENABLED="$(bool_or_zero "$ENABLED")"
@@ -41,6 +48,8 @@ load_config() {
     SCANNING_TWEAKS="$(bool_or_zero "$SCANNING_TWEAKS")"
     DISPLAY_IDLE_TWEAKS="$(bool_or_zero "$DISPLAY_IDLE_TWEAKS")"
     DOZE_TUNING="$(bool_or_zero "$DOZE_TUNING")"
+    ULTRA_IDLE="$(bool_or_zero "$ULTRA_IDLE")"
+    [ -n "$PROTECTED_PACKAGES" ] || PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
 }
 
 save_config() {
@@ -50,6 +59,8 @@ save_config() {
         echo "SCANNING_TWEAKS=$SCANNING_TWEAKS"
         echo "DISPLAY_IDLE_TWEAKS=$DISPLAY_IDLE_TWEAKS"
         echo "DOZE_TUNING=$DOZE_TUNING"
+        echo "ULTRA_IDLE=$ULTRA_IDLE"
+        echo "PROTECTED_PACKAGES=$PROTECTED_PACKAGES"
     } > "$CONFIG_FILE"
     chmod 0644 "$CONFIG_FILE" 2>/dev/null
 }
@@ -208,6 +219,175 @@ apply_aggressive_settings() {
     settings_put secure voice_interaction_service 0 existing
 }
 
+apply_ultra_idle_settings() {
+    [ "$ULTRA_IDLE" = "1" ] || return
+    log "ultra idle enabled"
+
+    settings_put global app_standby_enabled 1 common
+    settings_put global app_restriction_enabled 1 existing
+    settings_put global forced_app_standby_enabled 1 existing
+    settings_put global app_auto_restriction_enabled 1 existing
+    settings_put global adaptive_battery_management_enabled 1 common
+    settings_put global enable_freezer 1 existing
+    settings_put global cached_apps_freezer 1 existing
+    settings_put global bluetooth_on 0 existing
+    settings_put secure location_mode 0 existing
+    settings_put secure screensaver_enabled 0 common
+    settings_put secure notification_badging 0 existing
+    settings_put secure lock_screen_show_notifications 0 existing
+    settings_put system accelerometer_rotation 0 existing
+    settings_put system haptic_feedback_enabled 0 existing
+}
+
+package_valid() {
+    case "$1" in
+        ""|*[!A-Za-z0-9._-]*|.*|*..*|*.) return 1 ;;
+        *.*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+protected_contains() {
+    pkg="$1"
+    old_ifs="$IFS"
+    IFS=,
+    for item in $PROTECTED_PACKAGES; do
+        IFS="$old_ifs"
+        [ "$item" = "$pkg" ] && return 0
+        IFS=,
+    done
+    IFS="$old_ifs"
+    return 1
+}
+
+protected_print_lines() {
+    old_ifs="$IFS"
+    IFS=,
+    for item in $PROTECTED_PACKAGES; do
+        IFS="$old_ifs"
+        [ -n "$item" ] && echo "$item"
+        IFS=,
+    done
+    IFS="$old_ifs"
+}
+
+protected_add_pkg() {
+    pkg="$1"
+    load_config
+    if ! package_valid "$pkg"; then
+        echo "Invalid package name: $pkg"
+        exit 2
+    fi
+    if protected_contains "$pkg"; then
+        echo "$pkg already protected"
+        exit 0
+    fi
+    if [ -n "$PROTECTED_PACKAGES" ]; then
+        PROTECTED_PACKAGES="$PROTECTED_PACKAGES,$pkg"
+    else
+        PROTECTED_PACKAGES="$pkg"
+    fi
+    save_config
+    log "protected add: $pkg"
+    echo "Added protected package: $pkg"
+}
+
+protected_remove_pkg() {
+    pkg="$1"
+    load_config
+    if ! package_valid "$pkg"; then
+        echo "Invalid package name: $pkg"
+        exit 2
+    fi
+    new_list=""
+    old_ifs="$IFS"
+    IFS=,
+    for item in $PROTECTED_PACKAGES; do
+        IFS="$old_ifs"
+        if [ "$item" != "$pkg" ] && [ -n "$item" ]; then
+            [ -n "$new_list" ] && new_list="$new_list,$item" || new_list="$item"
+        fi
+        IFS=,
+    done
+    IFS="$old_ifs"
+    PROTECTED_PACKAGES="$new_list"
+    save_config
+    log "protected remove: $pkg"
+    echo "Removed protected package if present: $pkg"
+}
+
+protected_reset() {
+    load_config
+    PROTECTED_PACKAGES="$DEFAULT_PROTECTED_PACKAGES"
+    save_config
+    log "protected reset"
+    echo "Protected packages reset to defaults."
+}
+
+cmd_protected_list() {
+    load_config
+    protected_print_lines
+}
+
+write_thanox_helper() {
+    target="$1"
+    {
+        echo "Peridot Idle Drain - Thanox Helper"
+        date
+        echo
+        echo "Recommended target:"
+        echo "- Xiaomi peridot running VoltageOS"
+        echo "- Calls and Clock/alarm should stay protected"
+        echo
+        echo "Protected packages:"
+        protected_print_lines | sed 's/^/- /'
+        echo
+        echo "Thanox setup concept:"
+        echo "1. Add the protected packages above to your Thanox whitelist/do-not-freeze list."
+        echo "2. Add any app that must notify instantly, such as WhatsApp or Telegram."
+        echo "3. For all other user apps, use Thanox to restrict background start/wakeup after screen off."
+        echo "4. For apps like Paytm/shopping/social/video apps, freeze or hibernate after screen off/exit."
+        echo "5. Do not freeze Phone, Telecom, Telephony Provider, Clock, GMS, GSF, IMS, SystemUI, KernelSU, Magisk, or LSPosed."
+        echo
+        echo "Suggested Thanox policy:"
+        echo "- Screen off: restrict background start for non-protected apps"
+        echo "- Screen off: hibernate/freeze non-protected apps after a delay"
+        echo "- App launch: allow app to unfreeze when manually opened"
+        echo "- App exit or screen off: refreeze noisy apps"
+        echo "- Notification spam: disable app notification categories first, then restrict wakeups"
+        echo
+        echo "Notes:"
+        echo "- This module does not edit Thanox databases because that is fragile across Thanox versions."
+        echo "- Verify installed package names on your phone before adding custom protected apps."
+        echo "- Thanox package names seen in the wild can vary; add the actual Thanox package itself if it gets restricted."
+    } > "$target" 2>/dev/null
+}
+
+cmd_export_thanox() {
+    load_config
+    mkdir -p "$(dirname "$THANOX_FILE_TMP")" 2>/dev/null
+    wrote=""
+    if write_thanox_helper "$THANOX_FILE_TMP"; then
+        chmod 0644 "$THANOX_FILE_TMP" 2>/dev/null
+        wrote="$THANOX_FILE_TMP"
+    fi
+    if [ -d /sdcard/Download ] || mkdir -p /sdcard/Download 2>/dev/null; then
+        if write_thanox_helper "$THANOX_FILE_DOWNLOAD"; then
+            chmod 0644 "$THANOX_FILE_DOWNLOAD" 2>/dev/null
+            [ -n "$wrote" ] && wrote="$wrote
+$THANOX_FILE_DOWNLOAD"
+            [ -n "$wrote" ] || wrote="$THANOX_FILE_DOWNLOAD"
+        fi
+    fi
+    log "thanox helper exported"
+    if [ -n "$wrote" ]; then
+        echo "Exported Thanox helper:"
+        echo "$wrote"
+    else
+        echo "Could not write Thanox helper. Try again on Android after storage is mounted."
+    fi
+}
+
 print_setting() {
     printf '%s %-42s %s\n' "$1" "$2" "$(settings_get "$1" "$2")"
 }
@@ -225,6 +405,7 @@ cmd_apply() {
     apply_display_idle_settings
     apply_deviceidle_constants
     apply_aggressive_settings
+    apply_ultra_idle_settings
     log "apply complete"
     echo "Applied idle-drain tweaks."
 }
@@ -260,10 +441,14 @@ cmd_status() {
     echo "Scanning tweaks: $SCANNING_TWEAKS"
     echo "Display idle tweaks: $DISPLAY_IDLE_TWEAKS"
     echo "Doze tuning: $DOZE_TUNING"
+    echo "Ultra idle: $ULTRA_IDLE"
+    echo "Protected packages:"
+    protected_print_lines | sed 's/^/  /'
     echo "Config: $CONFIG_FILE"
     echo "Log: $LOG_FILE"
     echo "Backup: $BACKUP_FILE"
     echo "Diagnose: $DIAG_FILE"
+    echo "Thanox helper: $THANOX_FILE_TMP"
     [ -f "$BACKUP_FILE" ] && echo "Backup exists: yes" || echo "Backup exists: no"
 }
 
@@ -274,6 +459,9 @@ cmd_diagnose() {
         date
         echo
         cmd_status
+        echo
+        echo "Protected package list"
+        protected_print_lines
         echo
         echo "Device"
         getprop ro.product.device 2>/dev/null
@@ -303,7 +491,15 @@ cmd_diagnose() {
             "global network_recommendations_enabled" \
             "global wifi_wakeup_enabled" \
             "global mobile_data_always_on" \
+            "global app_standby_enabled" \
+            "global app_restriction_enabled" \
+            "global forced_app_standby_enabled" \
+            "global app_auto_restriction_enabled" \
+            "global adaptive_battery_management_enabled" \
+            "global enable_freezer" \
+            "global cached_apps_freezer" \
             "secure nearby_scanning_enabled" \
+            "secure location_mode" \
             "secure doze_enabled" \
             "secure doze_always_on" \
             "secure doze_pulse_on_pick_up" \
@@ -369,6 +565,15 @@ set_bool_config() {
         scanning) SCANNING_TWEAKS="$value" ;;
         display) DISPLAY_IDLE_TWEAKS="$value" ;;
         doze) DOZE_TUNING="$value" ;;
+        ultra)
+            ULTRA_IDLE="$value"
+            if [ "$value" = "1" ]; then
+                AGGRESSIVE=1
+                SCANNING_TWEAKS=1
+                DISPLAY_IDLE_TWEAKS=1
+                DOZE_TUNING=1
+            fi
+            ;;
         *) echo "Unknown config: $var"; exit 2 ;;
     esac
     save_config
@@ -386,10 +591,16 @@ case "$1" in
     set-scanning) set_bool_config scanning "$2" ;;
     set-display) set_bool_config display "$2" ;;
     set-doze) set_bool_config doze "$2" ;;
+    set-ultra) set_bool_config ultra "$2" ;;
+    protected-list) cmd_protected_list ;;
+    protected-add) protected_add_pkg "$2" ;;
+    protected-remove) protected_remove_pkg "$2" ;;
+    protected-reset) protected_reset ;;
+    export-thanox) cmd_export_thanox ;;
     logs) cmd_logs ;;
     clear-logs) cmd_clear_logs ;;
     *)
-        echo "Usage: $0 {apply|restore|status|diagnose|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|logs|clear-logs}"
+        echo "Usage: $0 {apply|restore|status|diagnose|set-enabled 0|1|set-aggressive 0|1|set-scanning 0|1|set-display 0|1|set-doze 0|1|set-ultra 0|1|protected-list|protected-add pkg|protected-remove pkg|protected-reset|export-thanox|logs|clear-logs}"
         exit 2
         ;;
 esac
